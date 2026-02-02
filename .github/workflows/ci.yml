@@ -7,7 +7,22 @@ on:
     branches: [master]
 
 jobs:
+  lint:
+    name: Smoke check (pngquant)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build pngquant
+        run: make pngquant
+
   build:
+    name: Full build (macOS)
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
