@@ -1,0 +1,9 @@
+*.mode1v3
+*.pbxuser
+build
+DerivedData
+.DS_Store
+*.xcuserstate
+xcuserdata/
+.idea/
+.claude/
