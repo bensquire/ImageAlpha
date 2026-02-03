@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.0.2
+
+- Switched distribution from ZIP to DMG with drag-to-Applications installer
+
 ## v0.0.1
 
 - Rewritten in Swift (replacing the original Python/PyObjC implementation)

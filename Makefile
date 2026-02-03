@@ -4,7 +4,7 @@ BUILD_DIR = build
 PNGQUANT_DIR = pngquant
 VERSION = $(shell /usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" Info.plist)
 
-.PHONY: build debug release archive clean pngquant zip
+.PHONY: build debug release archive clean pngquant dmg
 
 build: debug
 
@@ -21,10 +21,18 @@ archive:
 	xcodebuild -project $(PROJECT) -scheme $(SCHEME) -configuration Release \
 		-archivePath $(BUILD_DIR)/ImageAlpha.xcarchive archive
 
-zip: release
+dmg: release
 	mkdir -p $(BUILD_DIR)
 	cp -R $(HOME)/Library/Developer/Xcode/DerivedData/ImageAlpha-*/Build/Products/Release/ImageAlpha.app $(BUILD_DIR)/
-	cd $(BUILD_DIR) && zip -r ImageAlpha-v$(VERSION).zip ImageAlpha.app
+	create-dmg \
+		--volname "ImageAlpha" \
+		--window-pos 200 120 \
+		--window-size 600 400 \
+		--icon "ImageAlpha.app" 150 200 \
+		--app-drop-link 450 200 \
+		--no-internet-enable \
+		$(BUILD_DIR)/ImageAlpha-v$(VERSION).dmg \
+		$(BUILD_DIR)/ImageAlpha.app
 
 clean:
 	xcodebuild -project $(PROJECT) -scheme $(SCHEME) clean
