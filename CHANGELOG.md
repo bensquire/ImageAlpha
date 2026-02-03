@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.0.3
+
+- Added credits for original author (Kornel Lesiński) in About dialog
+
 ## v0.0.2
 
 - Switched distribution from ZIP to DMG with drag-to-Applications installer

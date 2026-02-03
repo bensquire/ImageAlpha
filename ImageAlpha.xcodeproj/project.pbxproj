@@ -23,6 +23,7 @@
 		AA30000100000010 /* libimagequant_sys.a in Frameworks */ = {isa = PBXBuildFile; fileRef = AA30001000000010 /* libimagequant_sys.a */; };
 		5A6B42DD0E96E50100ACA396 /* ImageAlpha.icns in Resources */ = {isa = PBXBuildFile; fileRef = 5A6B42DC0E96E50100ACA396 /* ImageAlpha.icns */; };
 		5A3010980F55DE1B0083C154 /* textures in Resources */ = {isa = PBXBuildFile; fileRef = 5A30108D0F55DE1B0083C154 /* textures */; };
+		AA30000100000020 /* Credits.rtf in Resources */ = {isa = PBXBuildFile; fileRef = AA30001000000020 /* Credits.rtf */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -49,6 +50,7 @@
 		AA3000100000000C /* ImageAlpha-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "ImageAlpha-Bridging-Header.h"; sourceTree = "<group>"; };
 		AA3000100000000D /* libimagequant.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = libimagequant.h; sourceTree = "<group>"; };
 		AA3000100000000E /* ImageAlpha.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ImageAlpha.entitlements; sourceTree = "<group>"; };
+		AA30001000000020 /* Credits.rtf */ = {isa = PBXFileReference; lastKnownFileType = text.rtf; path = Credits.rtf; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -114,6 +116,7 @@
 				8D15AC360486D014006FF6A4 /* Info.plist */,
 				5A6B42DC0E96E50100ACA396 /* ImageAlpha.icns */,
 				5A30108D0F55DE1B0083C154 /* textures */,
+				AA30001000000020 /* Credits.rtf */,
 			);
 			name = Resources;
 			sourceTree = "<group>";
@@ -195,6 +198,7 @@
 			files = (
 				5A6B42DD0E96E50100ACA396 /* ImageAlpha.icns in Resources */,
 				5A3010980F55DE1B0083C154 /* textures in Resources */,
+				AA30000100000020 /* Credits.rtf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
