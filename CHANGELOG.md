@@ -1,6 +1,6 @@
 # Changelog
 
-## v1.5.1
+## v0.0.1
 
 - Rewritten in Swift (replacing the original Python/PyObjC implementation)
 - Modernized for macOS 15+
