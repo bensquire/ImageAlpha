@@ -18,8 +18,13 @@ debug:
 	xcodebuild -project $(PROJECT) -scheme $(SCHEME) -configuration Debug build
 
 release:
+ifdef DEVELOPMENT_TEAM
 	xcodebuild -project $(PROJECT) -scheme $(SCHEME) -configuration Release \
 		DEVELOPMENT_TEAM=$(DEVELOPMENT_TEAM) build
+else
+	xcodebuild -project $(PROJECT) -scheme $(SCHEME) -configuration Release \
+		CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= build
+endif
 
 archive:
 	xcodebuild -project $(PROJECT) -scheme $(SCHEME) -configuration Release \
