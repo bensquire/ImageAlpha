@@ -17,6 +17,7 @@ class DocumentModel: ObservableObject {
     @Published var selectedBackground: BackgroundStyle = .checkerboard
     @Published var sourceFileSize: Int?
     @Published var sourceURL: URL?
+    @Published var sourceColorCount: Int?
 
     private let quantizer = Quantizer()
     private var quantizationTask: Task<Void, Never>?
@@ -56,6 +57,17 @@ class DocumentModel: ObservableObject {
         // Get CGImage from NSImage
         var rect = NSRect(origin: .zero, size: image.size)
         sourceCGImage = image.cgImage(forProposedRect: &rect, context: nil, hints: nil)
+
+        sourceColorCount = nil
+        if let cg = sourceCGImage {
+            Task.detached { [weak self] in
+                let count = Self.countUniqueColors(in: cg)
+                await MainActor.run {
+                    self?.sourceColorCount = count
+                    self?.updateStatus()
+                }
+            }
+        }
 
         requestQuantization()
     }
@@ -114,21 +126,105 @@ class DocumentModel: ObservableObject {
     }
 
     func updateSpeed() {
-        let s = UserDefaults.standard.integer(forKey: "speed")
-        self.speed = (s >= 1 && s <= 10) ? s : 3
+        let savedSpeed = UserDefaults.standard.integer(forKey: "speed")
+        self.speed = (savedSpeed >= 1 && savedSpeed <= 10) ? savedSpeed : 3
     }
 
     private func updateStatus() {
-        guard let data = quantizedPNGData else {
+        guard quantizedPNGData != nil else {
             statusMessage = sourceImage != nil ? "Processing..." : "To get started, drop PNG image onto main area on the right"
             return
         }
-        if let sourceSize = sourceFileSize, sourceSize > 0 {
-            let percent = 100 - data.count * 100 / sourceSize
-            statusMessage = "Image size: \(data.count) bytes (saved \(percent)% of \(sourceSize) bytes)"
-        } else {
-            statusMessage = "Image size: \(data.count) bytes"
+
+        statusMessage = Self.formatStatus(
+            quantizedSize: quantizedPNGData!.count,
+            sourceSize: sourceFileSize,
+            sourceColorCount: sourceColorCount,
+            colorsDisplay: colorsDisplayString
+        )
+    }
+
+    nonisolated static func formatStatus(
+        quantizedSize: Int,
+        sourceSize: Int?,
+        sourceColorCount: Int?,
+        colorsDisplay: String
+    ) -> String {
+        let fmt = decimalFormatter
+
+        // Build "Original: …" part
+        var originalParts: [String] = []
+        if let count = sourceColorCount {
+            let countString = fmt.string(from: NSNumber(value: count)) ?? "\(count)"
+            originalParts.append("\(countString) colours")
         }
+        if let sourceSize, sourceSize > 0 {
+            let sizeString = fmt.string(from: NSNumber(value: sourceSize)) ?? "\(sourceSize)"
+            originalParts.append("\(sizeString) bytes")
+        }
+
+        // Build "Quantized: …" part
+        let quantizedSizeStr = fmt.string(from: NSNumber(value: quantizedSize)) ?? "\(quantizedSize)"
+        var quantizedParts: [String] = []
+        if sourceColorCount != nil {
+            quantizedParts.append("\(colorsDisplay) colours")
+        }
+        var bytesStr = "\(quantizedSizeStr) bytes"
+        if let sourceSize, sourceSize > 0 {
+            let pct = abs(quantizedSize - sourceSize) * 100 / sourceSize
+            let label = quantizedSize <= sourceSize ? "smaller" : "bigger"
+            bytesStr += " (\(pct)% \(label))"
+        }
+        quantizedParts.append(bytesStr)
+
+        if sourceColorCount == nil && originalParts.isEmpty {
+            return "Quantized: \(quantizedParts.joined(separator: ", "))."
+        } else if sourceColorCount == nil {
+            return "Original: \(originalParts.joined(separator: ", ")). Quantized: ..."
+        } else {
+            return "Original: \(originalParts.joined(separator: ", ")). Quantized: \(quantizedParts.joined(separator: ", "))."
+        }
+    }
+
+    private nonisolated static let decimalFormatter: NumberFormatter = {
+        let fmt = NumberFormatter()
+        fmt.numberStyle = .decimal
+        fmt.groupingSeparator = ","
+        return fmt
+    }()
+
+    private nonisolated static func countUniqueColors(in cgImage: CGImage) -> Int {
+        let width = cgImage.width
+        let height = cgImage.height
+        let bytesPerPixel = 4
+        let bytesPerRow = width * bytesPerPixel
+        let totalBytes = bytesPerRow * height
+
+        guard let colorSpace = CGColorSpace(name: CGColorSpace.sRGB),
+              let context = CGContext(
+                data: nil,
+                width: width,
+                height: height,
+                bitsPerComponent: 8,
+                bytesPerRow: bytesPerRow,
+                space: colorSpace,
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+              ),
+              let data = context.data else {
+            return 0
+        }
+
+        context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+
+        let pixelCount = totalBytes / bytesPerPixel
+        let pixels = data.bindMemory(to: UInt32.self, capacity: pixelCount)
+        let buffer = UnsafeBufferPointer(start: pixels, count: pixelCount)
+
+        var unique = Set<UInt32>(minimumCapacity: min(pixelCount, 1 << 18))
+        for pixel in buffer {
+            unique.insert(pixel)
+        }
+        return unique.count
     }
 
     // Number of colors ↔ bit depth slider (log2 scale)
@@ -139,19 +235,19 @@ class DocumentModel: ObservableObject {
             return log2(Double(numberOfColors))
         }
         set {
-            let v = Int(newValue.rounded())
-            if v > 8 {
+            let roundedValue = Int(newValue.rounded())
+            if roundedValue > 8 {
                 numberOfColors = 257
-            } else if v <= 1 {
+            } else if roundedValue <= 1 {
                 numberOfColors = 2
             } else {
-                numberOfColors = Int(pow(2.0, Double(v)).rounded())
+                numberOfColors = Int(pow(2.0, Double(roundedValue)).rounded())
             }
         }
     }
 
     var colorsDisplayString: String {
-        if numberOfColors > 256 { return "2\u{00B2}\u{2074}" }
+        if numberOfColors > 256 { return "24-bit" }
         return "\(numberOfColors)"
     }
 }

@@ -14,6 +14,12 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Install SwiftLint
+        run: brew install swiftlint
+
+      - name: Lint
+        run: make lint
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
@@ -22,3 +28,6 @@ jobs:
 
       - name: Build release
         run: make release
+
+      - name: Run tests
+        run: make test

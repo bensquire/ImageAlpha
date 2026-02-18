@@ -24,7 +24,20 @@
 		5A6B42DD0E96E50100ACA396 /* ImageAlpha.icns in Resources */ = {isa = PBXBuildFile; fileRef = 5A6B42DC0E96E50100ACA396 /* ImageAlpha.icns */; };
 		5A3010980F55DE1B0083C154 /* textures in Resources */ = {isa = PBXBuildFile; fileRef = 5A30108D0F55DE1B0083C154 /* textures */; };
 		AA30000100000020 /* Credits.rtf in Resources */ = {isa = PBXBuildFile; fileRef = AA30001000000020 /* Credits.rtf */; };
+		BB30000100000001 /* DocumentModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB30001000000001 /* DocumentModelTests.swift */; };
+		BB30000100000002 /* BackgroundStyleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB30001000000002 /* BackgroundStyleTests.swift */; };
+		BB30000100000003 /* QuantizerTypeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB30001000000003 /* QuantizerTypeTests.swift */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		BB30008000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 2A37F4A9FDCFA73011CA2CEA /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 8D15AC270486D014006FF6A4;
+			remoteInfo = ImageAlpha;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		1058C7A7FEA54F5311CA2CBB /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = /System/Library/Frameworks/Cocoa.framework; sourceTree = "<absolute>"; };
@@ -51,6 +64,10 @@
 		AA3000100000000D /* libimagequant.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = libimagequant.h; sourceTree = "<group>"; };
 		AA3000100000000E /* ImageAlpha.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ImageAlpha.entitlements; sourceTree = "<group>"; };
 		AA30001000000020 /* Credits.rtf */ = {isa = PBXFileReference; lastKnownFileType = text.rtf; path = Credits.rtf; sourceTree = "<group>"; };
+		BB30001000000001 /* DocumentModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentModelTests.swift; sourceTree = "<group>"; };
+		BB30001000000002 /* BackgroundStyleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundStyleTests.swift; sourceTree = "<group>"; };
+		BB30001000000003 /* QuantizerTypeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuantizerTypeTests.swift; sourceTree = "<group>"; };
+		BB30001000000010 /* ImageAlphaTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ImageAlphaTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -64,6 +81,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		BB30003000000002 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -74,6 +98,7 @@
 				AA30002000000002 /* Views */,
 				AA30002000000003 /* Resources */,
 				AA30002000000004 /* Frameworks */,
+				BB30002000000001 /* ImageAlphaTests */,
 				19C28FB0FE9D524F11CA2CBB /* Products */,
 				5AED10DB139BAC1400FF5C69 /* release.xcconfig */,
 				5AED10DC139BAC1400FF5C69 /* debug.xcconfig */,
@@ -135,8 +160,20 @@
 			isa = PBXGroup;
 			children = (
 				8D15AC370486D014006FF6A4 /* ImageAlpha.app */,
+				BB30001000000010 /* ImageAlphaTests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		BB30002000000001 /* ImageAlphaTests */ = {
+			isa = PBXGroup;
+			children = (
+				BB30001000000001 /* DocumentModelTests.swift */,
+				BB30001000000002 /* BackgroundStyleTests.swift */,
+				BB30001000000003 /* QuantizerTypeTests.swift */,
+			);
+			name = ImageAlphaTests;
+			path = ImageAlphaTests;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -160,6 +197,23 @@
 			productReference = 8D15AC370486D014006FF6A4 /* ImageAlpha.app */;
 			productType = "com.apple.product-type.application";
 		};
+		BB30004000000001 /* ImageAlphaTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BB30005000000001 /* Build configuration list for PBXNativeTarget "ImageAlphaTests" */;
+			buildPhases = (
+				BB30003000000001 /* Sources */,
+				BB30003000000002 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				BB30007000000001 /* PBXTargetDependency */,
+			);
+			name = ImageAlphaTests;
+			productName = ImageAlphaTests;
+			productReference = BB30001000000010 /* ImageAlphaTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -171,6 +225,10 @@
 				TargetAttributes = {
 					8D15AC270486D014006FF6A4 = {
 						ProvisioningStyle = Manual;
+					};
+					BB30004000000001 = {
+						ProvisioningStyle = Automatic;
+						TestTargetID = 8D15AC270486D014006FF6A4;
 					};
 				};
 			};
@@ -187,6 +245,7 @@
 			projectRoot = "";
 			targets = (
 				8D15AC270486D014006FF6A4 /* ImageAlpha */,
+				BB30004000000001 /* ImageAlphaTests */,
 			);
 		};
 /* End PBXProject section */
@@ -223,7 +282,25 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		BB30003000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BB30000100000001 /* DocumentModelTests.swift in Sources */,
+				BB30000100000002 /* BackgroundStyleTests.swift in Sources */,
+				BB30000100000003 /* QuantizerTypeTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		BB30007000000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 8D15AC270486D014006FF6A4 /* ImageAlpha */;
+			targetProxy = BB30008000000001 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		C05733C808A9546B00998B17 /* Debug */ = {
@@ -367,6 +444,44 @@
 			};
 			name = Release;
 		};
+		BB30006000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SRCROOT)/pngquant/target/release",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				PRODUCT_BUNDLE_IDENTIFIER = net.pornel.ImageAlphaTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_OBJC_BRIDGING_HEADER = "ImageAlpha-Bridging-Header.h";
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/ImageAlpha.app/Contents/MacOS/ImageAlpha";
+			};
+			name = Debug;
+		};
+		BB30006000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SRCROOT)/pngquant/target/release",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				PRODUCT_BUNDLE_IDENTIFIER = net.pornel.ImageAlphaTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_OBJC_BRIDGING_HEADER = "ImageAlpha-Bridging-Header.h";
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/ImageAlpha.app/Contents/MacOS/ImageAlpha";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -384,6 +499,15 @@
 			buildConfigurations = (
 				C05733CC08A9546B00998B17 /* Debug */,
 				C05733CD08A9546B00998B17 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		BB30005000000001 /* Build configuration list for PBXNativeTarget "ImageAlphaTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BB30006000000001 /* Debug */,
+				BB30006000000002 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

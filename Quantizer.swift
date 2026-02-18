@@ -36,6 +36,7 @@ enum QuantizationError: Error, LocalizedError {
 
 actor Quantizer {
 
+    // swiftlint:disable:next cyclomatic_complexity
     func quantize(cgImage: CGImage, options: QuantizationOptions) throws -> QuantizationResult {
         let width = cgImage.width
         let height = cgImage.height
@@ -64,11 +65,11 @@ actor Quantizer {
         let pixels = pixelData.bindMemory(to: UInt8.self, capacity: pixelCount * 4)
         for i in 0..<pixelCount {
             let offset = i * 4
-            let a = Int(pixels[offset + 3])
-            if a > 0 && a < 255 {
-                pixels[offset + 0] = UInt8(min(255, Int(pixels[offset + 0]) * 255 / a))
-                pixels[offset + 1] = UInt8(min(255, Int(pixels[offset + 1]) * 255 / a))
-                pixels[offset + 2] = UInt8(min(255, Int(pixels[offset + 2]) * 255 / a))
+            let alpha = Int(pixels[offset + 3])
+            if alpha > 0 && alpha < 255 {
+                pixels[offset + 0] = UInt8(min(255, Int(pixels[offset + 0]) * 255 / alpha))
+                pixels[offset + 1] = UInt8(min(255, Int(pixels[offset + 1]) * 255 / alpha))
+                pixels[offset + 2] = UInt8(min(255, Int(pixels[offset + 2]) * 255 / alpha))
             }
         }
 

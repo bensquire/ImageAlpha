@@ -167,6 +167,29 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return nil
     }
 
+    // MARK: - Helpers
+
+    private func selectMenuItem(_ sender: NSMenuItem) {
+        guard let menu = sender.menu else { return }
+        for item in menu.items {
+            item.state = item == sender ? .on : .off
+        }
+    }
+
+    private func selectMenuItem(withTag tag: Int, in menu: NSMenu) {
+        for item in menu.items {
+            item.state = item.tag == tag ? .on : .off
+        }
+    }
+
+    private func forEachDocument(_ body: (ImageAlphaDocument) -> Void) {
+        for doc in NSDocumentController.shared.documents {
+            if let alphaDoc = doc as? ImageAlphaDocument {
+                body(alphaDoc)
+            }
+        }
+    }
+
     // MARK: - Dithering Menu
 
     @objc func setDitheringAutomatic(_ sender: NSMenuItem) {
@@ -182,11 +205,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func setDitheredPreference(tag: Int, sender: NSMenuItem) {
-        if let menu = sender.menu {
-            for item in menu.items {
-                item.state = item == sender ? .on : .off
-            }
-        }
+        selectMenuItem(sender)
 
         if tag < 0 {
             UserDefaults.standard.removeObject(forKey: "dithered")
@@ -194,11 +213,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             UserDefaults.standard.set(tag != 0, forKey: "dithered")
         }
 
-        for doc in NSDocumentController.shared.documents {
-            if let alphaDoc = doc as? ImageAlphaDocument {
-                alphaDoc.model.updateDithering()
-            }
-        }
+        forEachDocument { $0.model.updateDithering() }
     }
 
     private func updateDitheringMenuState() {
@@ -212,36 +227,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if let toolsMenu = NSApp.mainMenu?.item(withTitle: "Tools")?.submenu,
            let ditherItem = toolsMenu.item(withTitle: "Dithering"),
            let ditherMenu = ditherItem.submenu {
-            for item in ditherMenu.items {
-                item.state = item.tag == tag ? .on : .off
-            }
+            selectMenuItem(withTag: tag, in: ditherMenu)
         }
     }
 
     // MARK: - Speed Menu
 
     @objc func setSpeed(_ sender: NSMenuItem) {
-        let speed = sender.tag
-        UserDefaults.standard.set(speed, forKey: "speed")
-
-        if let menu = sender.menu {
-            for item in menu.items {
-                item.state = item == sender ? .on : .off
-            }
-        }
-
+        UserDefaults.standard.set(sender.tag, forKey: "speed")
+        selectMenuItem(sender)
         updateSpeedMenuState()
-
-        for doc in NSDocumentController.shared.documents {
-            if let alphaDoc = doc as? ImageAlphaDocument {
-                alphaDoc.model.updateSpeed()
-            }
-        }
+        forEachDocument { $0.model.updateSpeed() }
     }
 
     private func updateSpeedMenuState() {
-        let speed = UserDefaults.standard.integer(forKey: "speed")
-        let activeSpeed = (speed >= 1 && speed <= 10) ? speed : 3
+        let savedSpeed = UserDefaults.standard.integer(forKey: "speed")
+        let activeSpeed = (savedSpeed >= 1 && savedSpeed <= 10) ? savedSpeed : 3
         if let toolsMenu = NSApp.mainMenu?.item(withTitle: "Tools")?.submenu {
             let speedItem = toolsMenu.items.first(where: { $0.submenu?.title == "Quality" })
             if let speedMenu = speedItem?.submenu {

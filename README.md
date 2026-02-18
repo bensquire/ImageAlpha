@@ -9,6 +9,7 @@
 [![License](https://img.shields.io/badge/license-GPLv3-blue)](https://www.gnu.org/licenses/gpl-3.0.html)
 [![CI](https://github.com/bensquire/ImageAlpha/actions/workflows/ci.yml/badge.svg)](https://github.com/bensquire/ImageAlpha/actions/workflows/ci.yml)
 [![GitHub release](https://img.shields.io/github/v/release/bensquire/ImageAlpha)](https://github.com/bensquire/ImageAlpha/releases)
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-ffdd00?logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/squired)
 
 <br>
 
@@ -48,10 +49,11 @@ make release     # build the app (Xcode)
 
 The built app will be at `~/Library/Developer/Xcode/DerivedData/ImageAlpha-*/Build/Products/Release/ImageAlpha.app`.
 
-To create a distributable zip:
+To create a distributable DMG:
 
 ```sh
-make zip
+brew install create-dmg
+make dmg
 ```
 
 ## Credits

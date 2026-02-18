@@ -32,10 +32,7 @@ class ImageCanvasNSView: NSView {
 
     var displayImage: NSImage? {
         didSet {
-            if let alt = originalImage, let img = displayImage {
-                let scale = getScale(of: alt)
-                setScale(scale, of: img)
-            }
+            syncImageScale()
             if zoomingToFill != 0 {
                 zoomToFill(scale: zoomingToFill)
             }
@@ -45,10 +42,7 @@ class ImageCanvasNSView: NSView {
 
     var originalImage: NSImage? {
         didSet {
-            if let img = displayImage, let alt = originalImage {
-                let scale = getScale(of: alt)
-                setScale(scale, of: img)
-            }
+            syncImageScale()
             imageOffset = .zero
             zoomToFill()
             updateImageLayer()
@@ -64,7 +58,7 @@ class ImageCanvasNSView: NSView {
     var zoom: CGFloat = 2.0 {
         didSet {
             zoomingToFill = 0
-            _setZoom(zoom)
+            applyZoom(zoom)
         }
     }
 
@@ -133,7 +127,7 @@ class ImageCanvasNSView: NSView {
         guard let hostLayer = layer else { return }
         let shadowHeight: CGFloat = 10
         let shadowWidth: CGFloat = 12
-        let b = hostLayer.bounds
+        let hostBounds = hostLayer.bounds
 
         let stop0 = CGColor(gray: 0, alpha: 0)
         let stop1 = CGColor(gray: 0, alpha: 0.04)
@@ -143,7 +137,7 @@ class ImageCanvasNSView: NSView {
         let top = CAGradientLayer()
         top.colors = [stop0, stop1, stop2, stop3]
         top.autoresizingMask = [.layerWidthSizable, .layerMinYMargin]
-        top.frame = CGRect(x: 0, y: b.height - shadowHeight, width: b.width, height: shadowHeight)
+        top.frame = CGRect(x: 0, y: hostBounds.height - shadowHeight, width: hostBounds.width, height: shadowHeight)
         topShadow = top
 
         let left = CAGradientLayer()
@@ -151,7 +145,7 @@ class ImageCanvasNSView: NSView {
         left.startPoint = CGPoint(x: 0, y: 0)
         left.endPoint = CGPoint(x: 1, y: 0)
         left.autoresizingMask = [.layerHeightSizable, .layerMaxXMargin]
-        left.frame = CGRect(x: 0, y: 0, width: shadowWidth, height: b.height)
+        left.frame = CGRect(x: 0, y: 0, width: shadowWidth, height: hostBounds.height)
         leftShadow = left
 
         hostLayer.addSublayer(left)
@@ -185,20 +179,20 @@ class ImageCanvasNSView: NSView {
         if z > 1.0 {
             z = min(4.0, floor(z))
         }
-        _setZoom(z)
+        applyZoom(z)
     }
 
     @objc func zoomIn(_ sender: Any?) {
-        zoom = zoom * 2.0
+        zoom *= 2.0
     }
 
     @objc func zoomOut(_ sender: Any?) {
-        zoom = zoom / 2.0
+        zoom /= 2.0
     }
 
-    private func _setZoom(_ z: CGFloat) {
+    private func applyZoom(_ z: CGFloat) {
         let clamped = min(16.0, max(1.0 / 128.0, z))
-        _zoom = clamped
+        currentZoom = clamped
         limitImageOffset()
         if clamped == 1.0 {
             imageLayer?.magnificationFilter = .nearest
@@ -209,7 +203,7 @@ class ImageCanvasNSView: NSView {
         repositionImageLayer()
     }
 
-    private var _zoom: CGFloat = 2.0
+    private var currentZoom: CGFloat = 2.0
 
     // MARK: - Image offset
 
@@ -218,12 +212,12 @@ class ImageCanvasNSView: NSView {
         let size = frame.size
         let imgSize = img.size
 
-        let w = (size.width + imgSize.width * _zoom) / 2
-        let h = (size.height + imgSize.height * _zoom) / 2
+        let halfWidth = (size.width + imgSize.width * currentZoom) / 2
+        let halfHeight = (size.height + imgSize.height * currentZoom) / 2
 
-        let x = max(-w + 15, min(w - 15, imageOffset.x))
-        let y = max(-h + 15, min(h - 15, imageOffset.y))
-        imageOffset = CGPoint(x: x, y: y)
+        let clampedX = max(-halfWidth + 15, min(halfWidth - 15, imageOffset.x))
+        let clampedY = max(-halfHeight + 15, min(halfHeight - 15, imageOffset.y))
+        imageOffset = CGPoint(x: clampedX, y: clampedY)
     }
 
     // MARK: - Zoom value accessors (non-linear slider mapping)
@@ -264,17 +258,17 @@ class ImageCanvasNSView: NSView {
     private func repositionImageLayer() {
         // Always use originalImage size for positioning so toggling showOriginal
         // doesn't change zoom/position. Fall back to displayImage if no original.
-        guard let img = originalImage ?? displayImage else { return }
-        let s = img.size
+        guard let image = originalImage ?? displayImage else { return }
+        let imageSize = image.size
         let viewSize = bounds.size
 
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         imageLayer.frame = CGRect(
-            x: imageOffset.x + viewSize.width / 2 - s.width * _zoom / 2,
-            y: imageOffset.y + viewSize.height / 2 - s.height * _zoom / 2,
-            width: s.width * _zoom,
-            height: s.height * _zoom
+            x: imageOffset.x + viewSize.width / 2 - imageSize.width * currentZoom / 2,
+            y: imageOffset.y + viewSize.height / 2 - imageSize.height * currentZoom / 2,
+            width: imageSize.width * currentZoom,
+            height: imageSize.height * currentZoom
         )
         imageLayer.opacity = Float(imageFade)
         CATransaction.commit()
@@ -282,16 +276,22 @@ class ImageCanvasNSView: NSView {
 
     // MARK: - Image scale helpers
 
-    private func getScale(of img: NSImage) -> NSSize {
-        guard let rep = img.representations.first else { return .zero }
-        let s = img.size
-        guard s.width > 0, s.height > 0 else { return .zero }
-        return NSSize(width: CGFloat(rep.pixelsWide) / s.width, height: CGFloat(rep.pixelsHigh) / s.height)
+    private func getScale(of image: NSImage) -> NSSize {
+        guard let rep = image.representations.first else { return .zero }
+        let imageSize = image.size
+        guard imageSize.width > 0, imageSize.height > 0 else { return .zero }
+        return NSSize(width: CGFloat(rep.pixelsWide) / imageSize.width, height: CGFloat(rep.pixelsHigh) / imageSize.height)
     }
 
-    private func setScale(_ scale: NSSize, of img: NSImage) {
-        guard let rep = img.representations.first, scale.width > 0, scale.height > 0 else { return }
-        img.size = NSSize(width: CGFloat(rep.pixelsWide) / scale.width, height: CGFloat(rep.pixelsHigh) / scale.height)
+    private func setScale(_ scale: NSSize, of image: NSImage) {
+        guard let rep = image.representations.first, scale.width > 0, scale.height > 0 else { return }
+        image.size = NSSize(width: CGFloat(rep.pixelsWide) / scale.width, height: CGFloat(rep.pixelsHigh) / scale.height)
+    }
+
+    private func syncImageScale() {
+        guard let original = originalImage, let display = displayImage else { return }
+        let scale = getScale(of: original)
+        setScale(scale, of: display)
     }
 
     // MARK: - Mouse events
@@ -353,7 +353,7 @@ class ImageCanvasNSView: NSView {
     }
 
     override func magnify(with event: NSEvent) {
-        let oldZoom = _zoom
+        let oldZoom = currentZoom
         var z: CGFloat
         if oldZoom + event.magnification > 1 {
             z = ((oldZoom / 20) + event.magnification / 4) * 20
@@ -409,16 +409,16 @@ class ImageCanvasNSView: NSView {
     }
 
     private func pointIsInImage(_ point: NSPoint) -> Bool {
-        guard let img = displayImage ?? originalImage else { return false }
-        let size = img.size
-        let fsize = frame.size
-        let w = max(50, size.width * _zoom + 15) / 2
-        let h = max(50, size.height * _zoom + 15) / 2
+        guard let image = displayImage ?? originalImage else { return false }
+        let imageSize = image.size
+        let frameSize = frame.size
+        let halfWidth = max(50, imageSize.width * currentZoom + 15) / 2
+        let halfHeight = max(50, imageSize.height * currentZoom + 15) / 2
         let offset = imageOffset
-        return point.x >= offset.x + fsize.width / 2 - w &&
-               point.y >= offset.y + fsize.height / 2 - h &&
-               point.x <= offset.x + fsize.width / 2 + w &&
-               point.y <= offset.y + fsize.height / 2 + h
+        return point.x >= offset.x + frameSize.width / 2 - halfWidth &&
+               point.y >= offset.y + frameSize.height / 2 - halfHeight &&
+               point.x <= offset.x + frameSize.width / 2 + halfWidth &&
+               point.y <= offset.y + frameSize.height / 2 + halfHeight
     }
 
     // MARK: - Drag and Drop

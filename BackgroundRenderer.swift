@@ -40,8 +40,8 @@ class ColorBackground: BackgroundRendering {
     let cgColor: CGColor
 
     init(color: NSColor) {
-        let c = color.usingColorSpace(.sRGB) ?? color
-        self.cgColor = c.cgColor
+        let srgbColor = color.usingColorSpace(.sRGB) ?? color
+        self.cgColor = srgbColor.cgColor
     }
 
     init(r: CGFloat, g: CGFloat, b: CGFloat) {

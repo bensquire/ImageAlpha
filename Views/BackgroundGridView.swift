@@ -72,11 +72,9 @@ struct CheckerboardSwiftUIView: View {
             let rows = Int(ceil(size.height / cellSize))
             context.fill(Path(CGRect(origin: .zero, size: size)), with: .color(Color(white: 0.86)))
             for row in 0..<rows {
-                for col in 0..<cols {
-                    if (row + col) % 2 == 0 {
-                        let rect = CGRect(x: CGFloat(col) * cellSize, y: CGFloat(row) * cellSize, width: cellSize, height: cellSize)
-                        context.fill(Path(rect), with: .color(.white))
-                    }
+                for col in 0..<cols where (row + col) % 2 == 0 {
+                    let rect = CGRect(x: CGFloat(col) * cellSize, y: CGFloat(row) * cellSize, width: cellSize, height: cellSize)
+                    context.fill(Path(rect), with: .color(.white))
                 }
             }
         }

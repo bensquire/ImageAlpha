@@ -7,7 +7,7 @@ DEVELOPMENT_TEAM ?=
 APP_PATH = $(BUILD_DIR)/ImageAlpha.app
 DMG_PATH = $(BUILD_DIR)/ImageAlpha-v$(VERSION).dmg
 
-.PHONY: build debug release archive clean pngquant sign notarize dmg
+.PHONY: build debug release archive clean pngquant sign notarize dmg publish test lint
 
 build: debug
 
@@ -51,6 +51,7 @@ dmg: release
 ifdef DEVELOPMENT_TEAM
 	$(MAKE) sign
 endif
+	rm -f $(DMG_PATH)
 	create-dmg \
 		--volname "ImageAlpha" \
 		--window-pos 200 120 \
@@ -60,6 +61,17 @@ endif
 		--no-internet-enable \
 		$(DMG_PATH) \
 		$(APP_PATH)
+
+publish: dmg notarize
+	gh release create "v$(VERSION)" $(DMG_PATH) --generate-notes || \
+	gh release upload "v$(VERSION)" $(DMG_PATH) --clobber
+
+lint:
+	swiftlint lint --strict
+
+test: pngquant
+	xcodebuild -project $(PROJECT) -scheme $(SCHEME) -configuration Debug \
+		CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= test
 
 clean:
 	xcodebuild -project $(PROJECT) -scheme $(SCHEME) clean
