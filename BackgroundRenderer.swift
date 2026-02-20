@@ -161,15 +161,14 @@ class CheckerboardBackground: BackgroundRendering {
 
     private func createCheckerboardImage() -> NSImage? {
         let size = 16
-        let image = NSImage(size: NSSize(width: size * 2, height: size * 2))
-        image.lockFocus()
-        CheckerboardBackground.checkerDark.setFill()
-        NSRect(x: 0, y: 0, width: size * 2, height: size * 2).fill()
-        CheckerboardBackground.checkerLight.setFill()
-        NSRect(x: 0, y: 0, width: size, height: size).fill()
-        NSRect(x: size, y: size, width: size, height: size).fill()
-        image.unlockFocus()
-        return image
+        return NSImage(size: NSSize(width: size * 2, height: size * 2), flipped: false) { rect in
+            CheckerboardBackground.checkerDark.setFill()
+            rect.fill()
+            CheckerboardBackground.checkerLight.setFill()
+            NSRect(x: 0, y: 0, width: size, height: size).fill()
+            NSRect(x: size, y: size, width: size, height: size).fill()
+            return true
+        }
     }
 }
 
