@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.0.6
+
+- Checkerboard transparency pattern now adapts to dark mode (dark gray tones instead of bright white)
+- Both sidebar thumbnails and main canvas checkerboard respond to appearance changes
+- Removed static `photoshop.png` texture in favor of dynamically generated checkerboard
+- Fixed bug where dragging a non-image file onto the canvas would incorrectly update the window title
+
 ## v0.0.5
 
 - Added 38 unit tests using Swift Testing framework
