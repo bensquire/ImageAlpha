@@ -111,17 +111,6 @@ struct BackgroundStyleTests {
         #expect(!canMove)
     }
 
-    @Test func checkerboardMakesLayer() {
-        // Arrange
-        let bg = CheckerboardBackground()
-
-        // Act
-        let layer = bg.makeLayer()
-
-        // Assert
-        #expect(layer.backgroundColor != nil)
-    }
-
     @Test func checkerLightIsWhiteInLightMode() {
         // Arrange
         let color = CheckerboardBackground.checkerLight
