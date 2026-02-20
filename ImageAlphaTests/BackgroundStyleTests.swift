@@ -1,4 +1,3 @@
-import AppKit
 import Testing
 @testable import ImageAlpha
 
@@ -112,60 +111,34 @@ struct BackgroundStyleTests {
     }
 
     @Test func checkerLightIsWhiteInLightMode() {
-        // Arrange
-        let color = CheckerboardBackground.checkerLight
-
         // Act
-        let white = resolveWhite(color, appearance: .aqua)
+        let white = CheckerboardBackground.checkerLightWhite(isDark: false)
 
         // Assert
-        #expect(isApproximately(white, 1.0))
+        #expect(white == 1.0)
     }
 
     @Test func checkerDarkIsLightGrayInLightMode() {
-        // Arrange
-        let color = CheckerboardBackground.checkerDark
-
         // Act
-        let white = resolveWhite(color, appearance: .aqua)
+        let white = CheckerboardBackground.checkerDarkWhite(isDark: false)
 
         // Assert
-        #expect(isApproximately(white, 0.86))
+        #expect(white == 0.86)
     }
 
     @Test func checkerLightIsDarkInDarkMode() {
-        // Arrange
-        let color = CheckerboardBackground.checkerLight
-
         // Act
-        let white = resolveWhite(color, appearance: .darkAqua)
+        let white = CheckerboardBackground.checkerLightWhite(isDark: true)
 
         // Assert
-        #expect(isApproximately(white, 0.30))
+        #expect(white == 0.30)
     }
 
     @Test func checkerDarkIsDarkerInDarkMode() {
-        // Arrange
-        let color = CheckerboardBackground.checkerDark
-
         // Act
-        let white = resolveWhite(color, appearance: .darkAqua)
+        let white = CheckerboardBackground.checkerDarkWhite(isDark: true)
 
         // Assert
-        #expect(isApproximately(white, 0.24))
-    }
-
-    // MARK: - Helpers
-
-    private func resolveWhite(_ color: NSColor, appearance name: NSAppearance.Name) -> CGFloat {
-        let saved = NSAppearance.current
-        defer { NSAppearance.current = saved }
-        NSAppearance.current = NSAppearance(named: name)
-        let resolved = color.usingColorSpace(.deviceGray) ?? color
-        return resolved.whiteComponent
-    }
-
-    private func isApproximately(_ actual: CGFloat, _ expected: CGFloat, tolerance: CGFloat = 0.01) -> Bool {
-        abs(actual - expected) < tolerance
+        #expect(white == 0.24)
     }
 }

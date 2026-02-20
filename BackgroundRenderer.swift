@@ -134,15 +134,16 @@ class PatternBackground: BackgroundRendering {
 class CheckerboardBackground: BackgroundRendering {
     // Light mode: white (1.0) + light gray (0.86) — classic Photoshop
     // Dark mode: dark gray (0.24) + slightly lighter (0.30)
+    static func checkerLightWhite(isDark: Bool) -> CGFloat { isDark ? 0.30 : 1.0 }
+    static func checkerDarkWhite(isDark: Bool) -> CGFloat { isDark ? 0.24 : 0.86 }
+
     static let checkerLight = NSColor(name: nil) { appearance in
-        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-            ? NSColor(white: 0.30, alpha: 1)
-            : NSColor(white: 1.0, alpha: 1)
+        let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        return NSColor(white: checkerLightWhite(isDark: isDark), alpha: 1)
     }
     static let checkerDark = NSColor(name: nil) { appearance in
-        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-            ? NSColor(white: 0.24, alpha: 1)
-            : NSColor(white: 0.86, alpha: 1)
+        let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        return NSColor(white: checkerDarkWhite(isDark: isDark), alpha: 1)
     }
 
     var canMove: Bool { false }
