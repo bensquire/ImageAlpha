@@ -1,3 +1,4 @@
+import AppKit
 import Testing
 @testable import ImageAlpha
 
@@ -95,5 +96,87 @@ struct BackgroundStyleTests {
 
         // Assert
         #expect(layer.backgroundColor != nil)
+    }
+
+    // MARK: - CheckerboardBackground
+
+    @Test func checkerboardCannotMove() {
+        // Arrange
+        let bg = CheckerboardBackground()
+
+        // Act
+        let canMove = bg.canMove
+
+        // Assert
+        #expect(!canMove)
+    }
+
+    @Test func checkerboardMakesLayer() {
+        // Arrange
+        let bg = CheckerboardBackground()
+
+        // Act
+        let layer = bg.makeLayer()
+
+        // Assert
+        #expect(layer.backgroundColor != nil)
+    }
+
+    @Test func checkerLightIsWhiteInLightMode() {
+        // Arrange
+        let color = CheckerboardBackground.checkerLight
+
+        // Act
+        let white = resolveWhite(color, appearance: .aqua)
+
+        // Assert
+        #expect(isApproximately(white, 1.0))
+    }
+
+    @Test func checkerDarkIsLightGrayInLightMode() {
+        // Arrange
+        let color = CheckerboardBackground.checkerDark
+
+        // Act
+        let white = resolveWhite(color, appearance: .aqua)
+
+        // Assert
+        #expect(isApproximately(white, 0.86))
+    }
+
+    @Test func checkerLightIsDarkInDarkMode() {
+        // Arrange
+        let color = CheckerboardBackground.checkerLight
+
+        // Act
+        let white = resolveWhite(color, appearance: .darkAqua)
+
+        // Assert
+        #expect(isApproximately(white, 0.30))
+    }
+
+    @Test func checkerDarkIsDarkerInDarkMode() {
+        // Arrange
+        let color = CheckerboardBackground.checkerDark
+
+        // Act
+        let white = resolveWhite(color, appearance: .darkAqua)
+
+        // Assert
+        #expect(isApproximately(white, 0.24))
+    }
+
+    // MARK: - Helpers
+
+    private func resolveWhite(_ color: NSColor, appearance name: NSAppearance.Name) -> CGFloat {
+        let saved = NSAppearance.current
+        defer { NSAppearance.current = saved }
+        NSAppearance.current = NSAppearance(named: name)
+        let resolved = color.usingColorSpace(.deviceGray) ?? color
+        return resolved.whiteComponent
+    }
+
+    private func isApproximately(_ actual: CGFloat, _ expected: CGFloat, tolerance: CGFloat = 0.01) -> Bool {
+        abs(actual - expected) < tolerance
     }
 }

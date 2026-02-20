@@ -17,7 +17,7 @@ struct ImageCanvasView: NSViewRepresentable {
         // Update background if changed
         if coordinator.lastBackground != model.selectedBackground {
             coordinator.lastBackground = model.selectedBackground
-            nsView.backgroundRenderer = makeBackgroundRenderer(for: model.selectedBackground)
+            nsView.checkerboardStyle = model.selectedBackground
         }
 
         // Update show original state

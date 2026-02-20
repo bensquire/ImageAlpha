@@ -132,10 +132,22 @@ class PatternBackground: BackgroundRendering {
 }
 
 class CheckerboardBackground: BackgroundRendering {
+    // Light mode: white (1.0) + light gray (0.86) — classic Photoshop
+    // Dark mode: dark gray (0.24) + slightly lighter (0.30)
+    static let checkerLight = NSColor(name: nil) { appearance in
+        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            ? NSColor(white: 0.30, alpha: 1)
+            : NSColor(white: 1.0, alpha: 1)
+    }
+    static let checkerDark = NSColor(name: nil) { appearance in
+        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            ? NSColor(white: 0.24, alpha: 1)
+            : NSColor(white: 0.86, alpha: 1)
+    }
+
     var canMove: Bool { false }
 
     func makeLayer() -> CALayer {
-        // Create a checkerboard pattern image (standard Photoshop-style)
         guard let checkerImage = createCheckerboardImage() else {
             let layer = CALayer()
             layer.backgroundColor = CGColor(gray: 0.8, alpha: 1)
@@ -148,17 +160,12 @@ class CheckerboardBackground: BackgroundRendering {
     func moveBy(_ delta: NSSize) {}
 
     private func createCheckerboardImage() -> NSImage? {
-        // Try loading the photoshop checkerboard texture from bundle
-        if let path = Bundle.main.path(forResource: "textures/photoshop", ofType: "png") {
-            return NSImage(contentsOfFile: path)
-        }
-        // Fallback: generate a simple checkerboard
         let size = 16
         let image = NSImage(size: NSSize(width: size * 2, height: size * 2))
         image.lockFocus()
-        NSColor(white: 0.86, alpha: 1).setFill()
+        CheckerboardBackground.checkerDark.setFill()
         NSRect(x: 0, y: 0, width: size * 2, height: size * 2).fill()
-        NSColor(white: 1.0, alpha: 1).setFill()
+        CheckerboardBackground.checkerLight.setFill()
         NSRect(x: 0, y: 0, width: size, height: size).fill()
         NSRect(x: size, y: size, width: size, height: size).fill()
         image.unlockFocus()

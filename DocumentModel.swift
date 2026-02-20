@@ -43,8 +43,9 @@ class DocumentModel: ObservableObject {
             .store(in: &cancellables)
     }
 
-    func loadImage(from url: URL) {
-        guard let image = NSImage(contentsOf: url) else { NSLog("loadImage: NSImage failed for %@", url.path); return }
+    @discardableResult
+    func loadImage(from url: URL) -> Bool {
+        guard let image = NSImage(contentsOf: url) else { NSLog("loadImage: NSImage failed for %@", url.path); return false }
         NSLog("loadImage: loaded %@ size=%@", url.lastPathComponent, NSStringFromSize(image.size))
         sourceURL = url
         sourceImage = image
@@ -57,6 +58,7 @@ class DocumentModel: ObservableObject {
         // Get CGImage from NSImage
         var rect = NSRect(origin: .zero, size: image.size)
         sourceCGImage = image.cgImage(forProposedRect: &rect, context: nil, hints: nil)
+        guard sourceCGImage != nil else { NSLog("loadImage: cgImage failed for %@", url.path); return false }
 
         sourceColorCount = nil
         if let cg = sourceCGImage {
@@ -70,6 +72,7 @@ class DocumentModel: ObservableObject {
         }
 
         requestQuantization()
+        return true
     }
 
     func requestQuantization() {

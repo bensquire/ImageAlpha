@@ -19,6 +19,12 @@ class ImageCanvasNSView: NSView {
     private var dragBackground = false
     private var dragStart: CGPoint = .zero
 
+    var checkerboardStyle: ImageAlpha.BackgroundStyle? {
+        didSet {
+            applyBackground()
+        }
+    }
+
     var backgroundRenderer: BackgroundRendering? {
         didSet {
             guard let renderer = backgroundRenderer else { return }
@@ -28,6 +34,16 @@ class ImageCanvasNSView: NSView {
             layer?.replaceSublayer(backgroundLayer, with: newLayer)
             backgroundLayer = newLayer
         }
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        applyBackground()
+    }
+
+    private func applyBackground() {
+        guard let style = checkerboardStyle else { return }
+        backgroundRenderer = makeBackgroundRenderer(for: style)
     }
 
     var displayImage: NSImage? {

@@ -93,7 +93,7 @@ class ImageAlphaDocument: NSDocument {
     }
 
     private func loadFromURL(_ url: URL) {
-        model.loadImage(from: url)
+        guard model.loadImage(from: url) else { return }
         fileURL = url
         fileType = "public.png"
         if let wc = windowControllers.first {
