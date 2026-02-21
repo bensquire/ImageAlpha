@@ -101,8 +101,23 @@ class ImageAlphaDocument: NSDocument {
         }
     }
 
+    @objc func copy(_ sender: Any?) {
+        guard let data = model.quantizedPNGData,
+              let image = model.quantizedImage else {
+            NSSound.beep()
+            return
+        }
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setData(data, forType: .png)
+        pasteboard.writeObjects([image])
+    }
+
     override func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
         let action = menuItem.action
+        if action == Selector(("copy:")) {
+            return model.quantizedPNGData != nil
+        }
         if model.sourceImage == nil {
             if action == #selector(NSDocument.save(_:)) ||
                action == #selector(NSDocument.saveAs(_:)) {

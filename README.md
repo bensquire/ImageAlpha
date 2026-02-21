@@ -24,8 +24,11 @@
 - **Lossy alpha compression** powered by pngquant/libimagequant
 - **Real-time preview** — see before/after as you adjust settings
 - **Adjustable colors and dithering** for fine-tuned control
+- **Side-by-side comparison** — split view with draggable divider to compare original and quantized
+- **Copy & drag export** — Cmd+C to copy, or drag the image directly to Finder or other apps
 - **Background previews** — checkerboard, solid color, and image textures
 - **File size savings** displayed before saving
+- **Open With support** — right-click any PNG in Finder to open in ImageAlpha
 
 ## Download
 

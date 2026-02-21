@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.0.7
+
+- Added Copy (Cmd+C) to copy the quantized image to the clipboard
+- Added drag-out support: drag the quantized image from the canvas to Finder or other apps
+- Added side-by-side split comparison view with draggable divider
+- Added `LSHandlerRank` so ImageAlpha appears in Finder's "Open With" menu for PNGs
+
 ## v0.0.6
 
 - Checkerboard transparency pattern now adapts to dark mode (dark gray tones instead of bright white)

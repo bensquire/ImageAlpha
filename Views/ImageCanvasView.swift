@@ -7,6 +7,7 @@ struct ImageCanvasView: NSViewRepresentable {
     func makeNSView(context: Context) -> ImageCanvasNSView {
         let view = ImageCanvasNSView(frame: .zero)
         view.delegate = context.coordinator
+        view.pngDataProvider = { [weak model] in model?.quantizedPNGData }
         view.zoomToFill()
         return view
     }
@@ -23,6 +24,12 @@ struct ImageCanvasView: NSViewRepresentable {
         // Update show original state
         if nsView.showOriginal != model.showOriginal {
             nsView.showOriginal = model.showOriginal
+        }
+
+        // Update compare (split) mode
+        let wantSplit: CGFloat? = model.compareMode ? (nsView.splitPosition ?? 0.5) : nil
+        if (nsView.splitPosition == nil) != (wantSplit == nil) || nsView.splitPosition != wantSplit {
+            nsView.splitPosition = wantSplit
         }
 
         // Update display image (skip if quantizedImage is the same object as sourceImage,

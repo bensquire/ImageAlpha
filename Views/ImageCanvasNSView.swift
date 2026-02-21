@@ -1,14 +1,16 @@
 import AppKit
 import QuartzCore
+import UniformTypeIdentifiers
 
 protocol ImageCanvasDelegate: AnyObject {
     func canvasDidReceiveDrop(urls: [URL])
     func canvasShowOriginalChanged(_ showOriginal: Bool)
 }
 
-class ImageCanvasNSView: NSView {
+class ImageCanvasNSView: NSView, NSDraggingSource, NSFilePromiseProviderDelegate {
 
     weak var delegate: ImageCanvasDelegate?
+    var pngDataProvider: (() -> Data?)?
 
     private var imageLayer: CALayer!
     private var backgroundLayer: CALayer!
@@ -18,6 +20,8 @@ class ImageCanvasNSView: NSView {
     private var mouseIsDown = false
     private var dragBackground = false
     private var dragStart: CGPoint = .zero
+    private var potentialDragStart: CGPoint?
+    private var isDraggingOut = false
 
     var checkerboardStyle: ImageAlpha.BackgroundStyle? {
         didSet {
@@ -70,6 +74,17 @@ class ImageCanvasNSView: NSView {
             updateImageLayer()
         }
     }
+
+    var splitPosition: CGFloat? {
+        didSet {
+            updateSplitLayers()
+            window?.invalidateCursorRects(for: self)
+        }
+    }
+
+    private var originalLayer: CALayer?
+    private var splitDividerLayer: CALayer?
+    private var isDraggingSplit = false
 
     var zoom: CGFloat = 2.0 {
         didSet {
@@ -271,6 +286,64 @@ class ImageCanvasNSView: NSView {
         CATransaction.commit()
     }
 
+    private func updateSplitLayers() {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        if let pos = splitPosition {
+            // Create original layer if needed
+            if originalLayer == nil {
+                let oLayer = CALayer()
+                oLayer.magnificationFilter = .linear
+                oLayer.minificationFilter = .linear
+                oLayer.contentsGravity = .resize
+                layer?.insertSublayer(oLayer, above: imageLayer)
+                originalLayer = oLayer
+
+                let divider = CALayer()
+                divider.backgroundColor = CGColor(gray: 1, alpha: 0.8)
+                layer?.insertSublayer(divider, above: oLayer)
+                splitDividerLayer = divider
+            }
+
+            // Set original image contents on the original layer
+            if let img = originalImage {
+                var rect = NSRect(origin: .zero, size: img.size)
+                originalLayer?.contents = img.cgImage(forProposedRect: &rect, context: nil, hints: nil)
+            }
+            originalLayer?.isHidden = false
+            splitDividerLayer?.isHidden = false
+
+            // Clip: original layer shows left half, imageLayer clipped to right half
+            let viewWidth = bounds.width
+            let dividerX = viewWidth * pos
+            originalLayer?.frame = imageLayer.frame
+            applySplitMasks(dividerX: dividerX, imageFrame: imageLayer.frame)
+
+            // Divider line
+            splitDividerLayer?.frame = CGRect(x: dividerX - 2, y: 0, width: 4, height: bounds.height)
+        } else {
+            originalLayer?.isHidden = true
+            splitDividerLayer?.isHidden = true
+            originalLayer?.mask = nil
+            imageLayer.mask = nil
+        }
+        CATransaction.commit()
+    }
+
+    private func applySplitMasks(dividerX: CGFloat, imageFrame: CGRect) {
+        let leftClip = dividerX - imageFrame.origin.x
+
+        let origMask = CALayer()
+        origMask.backgroundColor = CGColor.black
+        origMask.frame = CGRect(x: 0, y: 0, width: leftClip, height: imageFrame.height)
+        originalLayer?.mask = origMask
+
+        let imgMask = CALayer()
+        imgMask.backgroundColor = CGColor.black
+        imgMask.frame = CGRect(x: leftClip, y: 0, width: imageFrame.width - leftClip, height: imageFrame.height)
+        imageLayer.mask = imgMask
+    }
+
     private func repositionImageLayer() {
         // Always use originalImage size for positioning so toggling showOriginal
         // doesn't change zoom/position. Fall back to displayImage if no original.
@@ -280,13 +353,22 @@ class ImageCanvasNSView: NSView {
 
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        imageLayer.frame = CGRect(
+        let imageFrame = CGRect(
             x: imageOffset.x + viewSize.width / 2 - imageSize.width * currentZoom / 2,
             y: imageOffset.y + viewSize.height / 2 - imageSize.height * currentZoom / 2,
             width: imageSize.width * currentZoom,
             height: imageSize.height * currentZoom
         )
+        imageLayer.frame = imageFrame
         imageLayer.opacity = Float(imageFade)
+        // Update split layers if active
+        if let pos = splitPosition {
+            originalLayer?.frame = imageFrame
+            let viewWidth = bounds.width
+            let dividerX = viewWidth * pos
+            applySplitMasks(dividerX: dividerX, imageFrame: imageFrame)
+            splitDividerLayer?.frame = CGRect(x: dividerX - 2, y: 0, width: 4, height: bounds.height)
+        }
         CATransaction.commit()
     }
 
@@ -310,10 +392,49 @@ class ImageCanvasNSView: NSView {
         setScale(scale, of: display)
     }
 
+    // MARK: - NSDraggingSource
+
+    func draggingSession(_ session: NSDraggingSession, sourceOperationMaskFor context: NSDraggingContext) -> NSDragOperation {
+        context == .outsideApplication ? .copy : []
+    }
+
+    // MARK: - NSFilePromiseProviderDelegate
+
+    func filePromiseProvider(_ filePromiseProvider: NSFilePromiseProvider, fileNameForType fileType: String) -> String {
+        "ImageAlpha.png"
+    }
+
+    func filePromiseProvider(_ filePromiseProvider: NSFilePromiseProvider, writePromiseTo url: URL, completionHandler handler: @escaping (Error?) -> Void) {
+        do {
+            if let data = pngDataProvider?() {
+                try data.write(to: url)
+            }
+            handler(nil)
+        } catch {
+            handler(error)
+        }
+    }
+
+    private func beginImageDrag(from event: NSEvent) {
+        guard let data = pngDataProvider?() else { return }
+        isDraggingOut = true
+
+        let provider = NSFilePromiseProvider(fileType: UTType.png.identifier, delegate: self)
+        provider.userInfo = data
+
+        let draggingItem = NSDraggingItem(pasteboardWriter: provider)
+
+        // Also put PNG data directly on the pasteboard
+        draggingItem.setDraggingFrame(imageLayer.frame, contents: displayImage ?? originalImage)
+
+        beginDraggingSession(with: [draggingItem], event: event, source: self)
+    }
+
     // MARK: - Mouse events
 
     override func mouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
+        isDraggingOut = false
 
         if let bg = backgroundRenderer, bg.canMove {
             dragBackground = !pointIsInImage(point)
@@ -326,7 +447,24 @@ class ImageCanvasNSView: NSView {
 
         dragStart = CGPoint(x: point.x, y: point.y)
 
+        // Check if clicking near the split divider
+        if let pos = splitPosition {
+            let dividerX = bounds.width * pos
+            if abs(point.x - dividerX) < 8 {
+                isDraggingSplit = true
+                return
+            }
+        }
+
+        // Track potential drag-out if clicking on the image with quantized data available
+        if !dragBackground && pointIsInImage(point) && pngDataProvider?() != nil {
+            potentialDragStart = point
+        } else {
+            potentialDragStart = nil
+        }
+
         if (event.clickCount & 3) == 2 {
+            potentialDragStart = nil
             imageOffset = .zero
             if zoomingToFill != 0 {
                 zoom = 1.0
@@ -341,7 +479,28 @@ class ImageCanvasNSView: NSView {
     }
 
     override func mouseDragged(with event: NSEvent) {
+        guard !isDraggingOut else { return }
+
         let point = convert(event.locationInWindow, from: nil)
+
+        // Handle split divider dragging
+        if isDraggingSplit {
+            let newPos = max(0.05, min(0.95, point.x / bounds.width))
+            splitPosition = newPos
+            return
+        }
+
+        // Check if we should start a drag-out session
+        if let start = potentialDragStart {
+            let dx = point.x - start.x
+            let dy = point.y - start.y
+            if dx * dx + dy * dy > 16 { // 4px threshold
+                potentialDragStart = nil
+                beginImageDrag(from: event)
+                return
+            }
+        }
+
         let dx = point.x - dragStart.x
         let dy = point.y - dragStart.y
         dragStart = CGPoint(x: point.x, y: point.y)
@@ -357,6 +516,9 @@ class ImageCanvasNSView: NSView {
 
     override func mouseUp(with event: NSEvent) {
         mouseIsDown = false
+        potentialDragStart = nil
+        isDraggingOut = false
+        isDraggingSplit = false
         window?.invalidateCursorRects(for: self)
     }
 
@@ -417,6 +579,13 @@ class ImageCanvasNSView: NSView {
     // MARK: - Cursor
 
     override func resetCursorRects() {
+        // Add resize cursor over the split divider
+        if let pos = splitPosition {
+            let dividerX = bounds.width * pos
+            let dividerRect = CGRect(x: dividerX - 8, y: 0, width: 16, height: bounds.height)
+            addCursorRect(dividerRect, cursor: .resizeLeftRight)
+        }
+
         if displayImage != nil || originalImage != nil || backgroundRenderer != nil {
             let cursor: NSCursor = mouseIsDown ? .closedHand : .openHand
             addCursorRect(visibleRect, cursor: cursor)

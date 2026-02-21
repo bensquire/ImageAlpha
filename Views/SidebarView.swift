@@ -36,6 +36,10 @@ struct SidebarView: View {
             // Show original toggle
             Toggle("Show original", isOn: $model.showOriginal)
                 .keyboardShortcut(.space, modifiers: [])
+                .disabled(model.sourceImage == nil || model.compareMode)
+
+            // Compare (split view) toggle
+            Toggle("Compare", isOn: $model.compareMode)
                 .disabled(model.sourceImage == nil)
 
             Divider()

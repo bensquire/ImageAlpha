@@ -9,9 +9,10 @@ class DocumentModel: ObservableObject {
     @Published var dithering: Bool = false
     @Published var ieMode: Bool = false
     @Published var speed: Int = 3
-    @Published var showOriginal: Bool = false
+    @Published var showOriginal: Bool = false { didSet { if showOriginal { compareMode = false } } }
     @Published var quantizedImage: NSImage?
     @Published var quantizedPNGData: Data?
+    @Published var compareMode: Bool = false { didSet { if compareMode { showOriginal = false } } }
     @Published var isBusy: Bool = false
     @Published var statusMessage: String = "To get started, drop PNG image onto main area on the right"
     @Published var selectedBackground: BackgroundStyle = .checkerboard
