@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.0.8
+
+- Added "Optimize with ImageOptim" checkbox in the Save panel
+- After saving, the file is automatically opened in ImageOptim for further optimization
+- Preference is persisted and also used for the Overwrite save path
+- Feature is hidden entirely when ImageOptim is not installed
+
 ## v0.0.7
 
 - Added Copy (Cmd+C) to copy the quantized image to the clipboard

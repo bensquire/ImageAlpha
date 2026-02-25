@@ -5,6 +5,7 @@ class ImageAlphaDocument: NSDocument {
 
     let model = DocumentModel()
     private var pendingURL: URL?
+    private var optimizeWithImageOptimCheckbox: NSButton?
 
     override class var autosavesInPlace: Bool { false }
 
@@ -53,6 +54,17 @@ class ImageAlphaDocument: NSDocument {
     }
 
     override func prepareSavePanel(_ savePanel: NSSavePanel) -> Bool {
+        guard NSWorkspace.shared.urlForApplication(withBundleIdentifier: "net.pornel.ImageOptim") != nil else {
+            return true
+        }
+
+        let checkbox = NSButton(checkboxWithTitle: "Optimize with ImageOptim", target: nil, action: nil)
+        checkbox.state = UserDefaults.standard.bool(forKey: "optimizeWithImageOptim") ? .on : .off
+        let accessory = NSView(frame: NSRect(x: 0, y: 0, width: 250, height: 32))
+        checkbox.frame = NSRect(x: 8, y: 4, width: 234, height: 24)
+        accessory.addSubview(checkbox)
+        savePanel.accessoryView = accessory
+        optimizeWithImageOptimCheckbox = checkbox
         return true
     }
 
@@ -79,6 +91,22 @@ class ImageAlphaDocument: NSDocument {
                 self.saveAs(sender)
             default:
                 break
+            }
+        }
+    }
+
+    override func save(to url: URL, ofType typeName: String, for saveOperation: NSDocument.SaveOperationType, completionHandler: @escaping (Error?) -> Void) {
+        // Capture checkbox state before the panel closes
+        let shouldOptimize = shouldOptimizeWithImageOptim()
+        if let checkbox = optimizeWithImageOptimCheckbox {
+            UserDefaults.standard.set(checkbox.state == .on, forKey: "optimizeWithImageOptim")
+            optimizeWithImageOptimCheckbox = nil
+        }
+
+        super.save(to: url, ofType: typeName, for: saveOperation) { error in
+            completionHandler(error)
+            if error == nil && shouldOptimize {
+                self.openInImageOptim(url: url)
             }
         }
     }
@@ -111,6 +139,18 @@ class ImageAlphaDocument: NSDocument {
         pasteboard.clearContents()
         pasteboard.setData(data, forType: .png)
         pasteboard.writeObjects([image])
+    }
+
+    private func shouldOptimizeWithImageOptim() -> Bool {
+        if let checkbox = optimizeWithImageOptimCheckbox {
+            return checkbox.state == .on
+        }
+        return UserDefaults.standard.bool(forKey: "optimizeWithImageOptim")
+    }
+
+    private func openInImageOptim(url: URL) {
+        guard let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "net.pornel.ImageOptim") else { return }
+        NSWorkspace.shared.open([url], withApplicationAt: appURL, configuration: NSWorkspace.OpenConfiguration())
     }
 
     override func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {

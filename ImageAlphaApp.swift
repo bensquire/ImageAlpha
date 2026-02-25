@@ -11,6 +11,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillFinishLaunching(_ notification: Notification) {
+        UserDefaults.standard.register(defaults: ["optimizeWithImageOptim": true])
+
         // Build menu bar early so it's ready before any windows
         NSApp.mainMenu = buildMainMenu()
         updateDitheringMenuState()
