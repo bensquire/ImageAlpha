@@ -95,7 +95,11 @@ class ImageAlphaDocument: NSDocument {
         }
     }
 
-    override func save(to url: URL, ofType typeName: String, for saveOperation: NSDocument.SaveOperationType, completionHandler: @escaping (Error?) -> Void) {
+    override func save(
+        to url: URL, ofType typeName: String,
+        for saveOperation: NSDocument.SaveOperationType,
+        completionHandler: @escaping (Error?) -> Void
+    ) {
         // Capture checkbox state before the panel closes
         let shouldOptimize = shouldOptimizeWithImageOptim()
         if let checkbox = optimizeWithImageOptimCheckbox {

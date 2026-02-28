@@ -18,6 +18,7 @@
 		AA30000100000009 /* BackgroundGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA30001000000009 /* BackgroundGridView.swift */; };
 		AA3000010000000A /* StatusBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA3000100000000A /* StatusBarView.swift */; };
 		AA3000010000000B /* DocumentContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA3000100000000B /* DocumentContentView.swift */; };
+		AA3000010000000C /* ImageCanvasNSView+DragDrop.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA3000100000000C /* ImageCanvasNSView+DragDrop.swift */; };
 		8D15AC340486D014006FF6A4 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1058C7A7FEA54F5311CA2CBB /* Cocoa.framework */; };
 		5A1C388D1F2A3D0400E21DAC /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5A1C38831F2A3CDB00E21DAC /* QuartzCore.framework */; };
 		AA30000100000010 /* libimagequant_sys.a in Frameworks */ = {isa = PBXBuildFile; fileRef = AA30001000000010 /* libimagequant_sys.a */; };
@@ -60,6 +61,7 @@
 		AA30001000000009 /* BackgroundGridView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundGridView.swift; sourceTree = "<group>"; };
 		AA3000100000000A /* StatusBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusBarView.swift; sourceTree = "<group>"; };
 		AA3000100000000B /* DocumentContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentContentView.swift; sourceTree = "<group>"; };
+		AA3000100000000C /* ImageCanvasNSView+DragDrop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ImageCanvasNSView+DragDrop.swift"; sourceTree = "<group>"; };
 		AA3000100000000C /* ImageAlpha-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "ImageAlpha-Bridging-Header.h"; sourceTree = "<group>"; };
 		AA3000100000000D /* libimagequant.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = libimagequant.h; sourceTree = "<group>"; };
 		AA3000100000000E /* ImageAlpha.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ImageAlpha.entitlements; sourceTree = "<group>"; };
@@ -130,6 +132,7 @@
 				AA30001000000009 /* BackgroundGridView.swift */,
 				AA3000100000000A /* StatusBarView.swift */,
 				AA3000100000000B /* DocumentContentView.swift */,
+				AA3000100000000C /* ImageCanvasNSView+DragDrop.swift */,
 			);
 			name = Views;
 			path = Views;
@@ -279,6 +282,7 @@
 				AA30000100000009 /* BackgroundGridView.swift in Sources */,
 				AA3000010000000A /* StatusBarView.swift in Sources */,
 				AA3000010000000B /* DocumentContentView.swift in Sources */,
+				AA3000010000000C /* ImageCanvasNSView+DragDrop.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

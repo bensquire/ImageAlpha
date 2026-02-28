@@ -12,16 +12,16 @@ class ImageCanvasNSView: NSView, NSDraggingSource, NSFilePromiseProviderDelegate
     weak var delegate: ImageCanvasDelegate?
     var pngDataProvider: (() -> Data?)?
 
-    private var imageLayer: CALayer!
+    var imageLayer: CALayer!
     private var backgroundLayer: CALayer!
     private var topShadow: CAGradientLayer!
     private var leftShadow: CAGradientLayer!
 
-    private var mouseIsDown = false
+    var mouseIsDown = false
     private var dragBackground = false
     private var dragStart: CGPoint = .zero
     private var potentialDragStart: CGPoint?
-    private var isDraggingOut = false
+    var isDraggingOut = false
 
     var checkerboardStyle: ImageAlpha.BackgroundStyle? {
         didSet {
@@ -234,7 +234,7 @@ class ImageCanvasNSView: NSView, NSDraggingSource, NSFilePromiseProviderDelegate
         repositionImageLayer()
     }
 
-    private var currentZoom: CGFloat = 2.0
+    var currentZoom: CGFloat = 2.0
 
     // MARK: - Image offset
 
@@ -394,17 +394,27 @@ class ImageCanvasNSView: NSView, NSDraggingSource, NSFilePromiseProviderDelegate
 
     // MARK: - NSDraggingSource
 
-    func draggingSession(_ session: NSDraggingSession, sourceOperationMaskFor context: NSDraggingContext) -> NSDragOperation {
+    func draggingSession(
+        _ session: NSDraggingSession,
+        sourceOperationMaskFor context: NSDraggingContext
+    ) -> NSDragOperation {
         context == .outsideApplication ? .copy : []
     }
 
     // MARK: - NSFilePromiseProviderDelegate
 
-    func filePromiseProvider(_ filePromiseProvider: NSFilePromiseProvider, fileNameForType fileType: String) -> String {
+    func filePromiseProvider(
+        _ filePromiseProvider: NSFilePromiseProvider,
+        fileNameForType fileType: String
+    ) -> String {
         "ImageAlpha.png"
     }
 
-    func filePromiseProvider(_ filePromiseProvider: NSFilePromiseProvider, writePromiseTo url: URL, completionHandler handler: @escaping (Error?) -> Void) {
+    func filePromiseProvider(
+        _ filePromiseProvider: NSFilePromiseProvider,
+        writePromiseTo url: URL,
+        completionHandler handler: @escaping (Error?) -> Void
+    ) {
         do {
             if let data = pngDataProvider?() {
                 try data.write(to: url)
@@ -415,7 +425,7 @@ class ImageCanvasNSView: NSView, NSDraggingSource, NSFilePromiseProviderDelegate
         }
     }
 
-    private func beginImageDrag(from event: NSEvent) {
+    func beginImageDrag(from event: NSEvent) {
         guard let data = pngDataProvider?() else { return }
         isDraggingOut = true
 
@@ -423,14 +433,28 @@ class ImageCanvasNSView: NSView, NSDraggingSource, NSFilePromiseProviderDelegate
         provider.userInfo = data
 
         let draggingItem = NSDraggingItem(pasteboardWriter: provider)
-
-        // Also put PNG data directly on the pasteboard
         draggingItem.setDraggingFrame(imageLayer.frame, contents: displayImage ?? originalImage)
 
         beginDraggingSession(with: [draggingItem], event: event, source: self)
     }
 
-    // MARK: - Mouse events
+    func pointIsInImage(_ point: NSPoint) -> Bool {
+        guard let image = displayImage ?? originalImage else { return false }
+        let imageSize = image.size
+        let frameSize = frame.size
+        let halfWidth = max(50, imageSize.width * currentZoom + 15) / 2
+        let halfHeight = max(50, imageSize.height * currentZoom + 15) / 2
+        let offset = imageOffset
+        return point.x >= offset.x + frameSize.width / 2 - halfWidth &&
+               point.y >= offset.y + frameSize.height / 2 - halfHeight &&
+               point.x <= offset.x + frameSize.width / 2 + halfWidth &&
+               point.y <= offset.y + frameSize.height / 2 + halfHeight
+    }
+}
+
+// MARK: - Mouse & Gesture Events
+
+extension ImageCanvasNSView {
 
     override func mouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
@@ -438,7 +462,9 @@ class ImageCanvasNSView: NSView, NSDraggingSource, NSFilePromiseProviderDelegate
 
         if let bg = backgroundRenderer, bg.canMove {
             dragBackground = !pointIsInImage(point)
-            if event.modifierFlags.contains([.shift]) || event.modifierFlags.contains([.option]) || event.modifierFlags.contains([.command]) {
+            if event.modifierFlags.contains([.shift])
+                || event.modifierFlags.contains([.option])
+                || event.modifierFlags.contains([.command]) {
                 dragBackground = !dragBackground
             }
         } else {
@@ -545,17 +571,9 @@ class ImageCanvasNSView: NSView, NSDraggingSource, NSFilePromiseProviderDelegate
     }
 
     // 3-finger touch to show original
-    override func touchesBegan(with event: NSEvent) {
-        updateTouches(event)
-    }
-
-    override func touchesMoved(with event: NSEvent) {
-        updateTouches(event)
-    }
-
-    override func touchesEnded(with event: NSEvent) {
-        updateTouches(event)
-    }
+    override func touchesBegan(with event: NSEvent) { updateTouches(event) }
+    override func touchesMoved(with event: NSEvent) { updateTouches(event) }
+    override func touchesEnded(with event: NSEvent) { updateTouches(event) }
 
     private func updateTouches(_ event: NSEvent) {
         let touches = event.touches(matching: .stationary, in: self)
@@ -576,66 +594,4 @@ class ImageCanvasNSView: NSView, NSDraggingSource, NSFilePromiseProviderDelegate
         delegate?.canvasShowOriginalChanged(false)
     }
 
-    // MARK: - Cursor
-
-    override func resetCursorRects() {
-        // Add resize cursor over the split divider
-        if let pos = splitPosition {
-            let dividerX = bounds.width * pos
-            let dividerRect = CGRect(x: dividerX - 8, y: 0, width: 16, height: bounds.height)
-            addCursorRect(dividerRect, cursor: .resizeLeftRight)
-        }
-
-        if displayImage != nil || originalImage != nil || backgroundRenderer != nil {
-            let cursor: NSCursor = mouseIsDown ? .closedHand : .openHand
-            addCursorRect(visibleRect, cursor: cursor)
-            cursor.set()
-        }
-    }
-
-    private func pointIsInImage(_ point: NSPoint) -> Bool {
-        guard let image = displayImage ?? originalImage else { return false }
-        let imageSize = image.size
-        let frameSize = frame.size
-        let halfWidth = max(50, imageSize.width * currentZoom + 15) / 2
-        let halfHeight = max(50, imageSize.height * currentZoom + 15) / 2
-        let offset = imageOffset
-        return point.x >= offset.x + frameSize.width / 2 - halfWidth &&
-               point.y >= offset.y + frameSize.height / 2 - halfHeight &&
-               point.x <= offset.x + frameSize.width / 2 + halfWidth &&
-               point.y <= offset.y + frameSize.height / 2 + halfHeight
-    }
-
-    // MARK: - Drag and Drop
-
-    override func draggingEntered(_ sender: any NSDraggingInfo) -> NSDragOperation {
-        if hasFileURLs(sender.draggingPasteboard) {
-            imageFade = 0.15
-            return [.copy]
-        }
-        return []
-    }
-
-    override func draggingExited(_ sender: (any NSDraggingInfo)?) {
-        imageFade = 1.0
-    }
-
-    override func prepareForDragOperation(_ sender: any NSDraggingInfo) -> Bool {
-        imageFade = 1.0
-        return hasFileURLs(sender.draggingPasteboard)
-    }
-
-    override func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {
-        guard let urls = sender.draggingPasteboard.readObjects(forClasses: [NSURL.self], options: [
-            .urlReadingFileURLsOnly: true
-        ]) as? [URL], !urls.isEmpty else {
-            return false
-        }
-        delegate?.canvasDidReceiveDrop(urls: urls)
-        return true
-    }
-
-    private func hasFileURLs(_ pasteboard: NSPasteboard) -> Bool {
-        pasteboard.availableType(from: [.fileURL]) != nil
-    }
 }
