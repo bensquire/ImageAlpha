@@ -36,6 +36,10 @@ enum QuantizationError: Error, LocalizedError {
 actor Quantizer {
 
     func quantize(cgImage: CGImage, options: QuantizationOptions) throws -> QuantizationResult {
+        // Slider scrubbing queues multiple requests on this actor; skip any
+        // whose task was already cancelled by a newer request.
+        try Task.checkCancellation()
+
         let width = cgImage.width
         let height = cgImage.height
         let pixelCount = width * height
@@ -86,6 +90,7 @@ actor Quantizer {
         defer { liq_image_destroy(liqImage) }
 
         // Quantize
+        try Task.checkCancellation()
         var resultPtr: OpaquePointer?
         let quantErr = liq_image_quantize(liqImage, attr, &resultPtr)
         guard quantErr == LIQ_OK, let result = resultPtr else {

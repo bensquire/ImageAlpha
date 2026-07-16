@@ -71,26 +71,38 @@ enum IndexedPNGEncoder {
 
     /// Prefixes each row with a None filter byte and packs indices big-endian
     /// (leftmost pixel in the most significant bits), rows padded to whole bytes.
-    static func packScanlines(pixels: [UInt8], width: Int, height: Int, bitDepth: Int) -> Data {
+    static func packScanlines(pixels: [UInt8], width: Int, height: Int, bitDepth: Int) -> [UInt8] {
         let pixelsPerByte = 8 / bitDepth
         let rowBytes = (width + pixelsPerByte - 1) / pixelsPerByte
-        var out = Data(capacity: (rowBytes + 1) * height)
+        var out = [UInt8](repeating: 0, count: (rowBytes + 1) * height)
 
-        for row in 0..<height {
-            out.append(0) // filter: None
-            var byte: UInt8 = 0
-            var bitsUsed = 0
-            for col in 0..<width {
-                byte = (byte << bitDepth) | pixels[row * width + col]
-                bitsUsed += bitDepth
-                if bitsUsed == 8 {
-                    out.append(byte)
-                    byte = 0
-                    bitsUsed = 0
+        out.withUnsafeMutableBufferPointer { dst in
+            pixels.withUnsafeBufferPointer { src in
+                for row in 0..<height {
+                    var write = row * (rowBytes + 1)
+                    dst[write] = 0 // filter: None
+                    write += 1
+                    if bitDepth == 8 {
+                        UnsafeMutableRawPointer(dst.baseAddress! + write)
+                            .copyMemory(from: src.baseAddress! + row * width, byteCount: width)
+                        continue
+                    }
+                    var byte: UInt8 = 0
+                    var bitsUsed = 0
+                    for col in 0..<width {
+                        byte = (byte << bitDepth) | src[row * width + col]
+                        bitsUsed += bitDepth
+                        if bitsUsed == 8 {
+                            dst[write] = byte
+                            write += 1
+                            byte = 0
+                            bitsUsed = 0
+                        }
+                    }
+                    if bitsUsed > 0 {
+                        dst[write] = byte << (8 - bitsUsed)
+                    }
                 }
-            }
-            if bitsUsed > 0 {
-                out.append(byte << (8 - bitsUsed))
             }
         }
         return out
@@ -98,9 +110,8 @@ enum IndexedPNGEncoder {
 
     /// Raw DEFLATE from the Compression framework wrapped in a zlib stream
     /// (header + Adler-32 trailer), as PNG's IDAT requires.
-    static func zlibCompress(_ data: Data) -> Data? {
-        guard !data.isEmpty else { return nil }
-        let source = [UInt8](data)
+    static func zlibCompress(_ source: [UInt8]) -> Data? {
+        guard !source.isEmpty else { return nil }
         let capacity = source.count + source.count / 4 + 256
         let destination = UnsafeMutablePointer<UInt8>.allocate(capacity: capacity)
         defer { destination.deallocate() }
@@ -119,12 +130,24 @@ enum IndexedPNGEncoder {
     }
 
     static func adler32(_ bytes: [UInt8]) -> UInt32 {
+        // Sums stay within UInt32 for up to 5552 bytes, so the expensive
+        // modulo only runs once per block instead of per byte.
         let modAdler: UInt32 = 65521
+        let blockSize = 5552
         var low: UInt32 = 1
         var high: UInt32 = 0
-        for byte in bytes {
-            low = (low &+ UInt32(byte)) % modAdler
-            high = (high &+ low) % modAdler
+        bytes.withUnsafeBufferPointer { buf in
+            var i = 0
+            while i < buf.count {
+                let end = min(i + blockSize, buf.count)
+                while i < end {
+                    low &+= UInt32(buf[i])
+                    high &+= low
+                    i += 1
+                }
+                low %= modAdler
+                high %= modAdler
+            }
         }
         return (high << 16) | low
     }
@@ -139,8 +162,10 @@ enum IndexedPNGEncoder {
 
     static func crc32(_ data: Data) -> UInt32 {
         var crc: UInt32 = 0xFFFF_FFFF
-        for byte in data {
-            crc = crcTable[Int((crc ^ UInt32(byte)) & 0xFF)] ^ (crc >> 8)
+        data.withUnsafeBytes { (buf: UnsafeRawBufferPointer) in
+            for byte in buf {
+                crc = crcTable[Int((crc ^ UInt32(byte)) & 0xFF)] ^ (crc >> 8)
+            }
         }
         return crc ^ 0xFFFF_FFFF
     }

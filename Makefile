@@ -12,7 +12,8 @@ DMG_PATH = $(BUILD_DIR)/ImageAlpha-v$(VERSION).dmg
 build: debug
 
 pngquant:
-	cargo build --release --manifest-path $(PNGQUANT_DIR)/imagequant-sys/Cargo.toml
+	CARGO_PROFILE_RELEASE_LTO=thin CARGO_PROFILE_RELEASE_CODEGEN_UNITS=1 \
+		cargo build --release --manifest-path $(PNGQUANT_DIR)/imagequant-sys/Cargo.toml
 
 debug:
 	xcodebuild -project $(PROJECT) -scheme $(SCHEME) -configuration Debug build
