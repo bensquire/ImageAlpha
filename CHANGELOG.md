@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.0.10
 
 - Quantized PNGs are now written as true 8-bit indexed PNGs (PLTE/tRNS, with
   1/2/4-bit packing for small palettes) instead of 32-bit RGBA — dramatically
@@ -23,6 +23,11 @@
   truncating
 - Centralized preferences handling; removed debug logging; spelling
   consistency ("colors")
+- PNG encoding is ~2× faster on large images (was the slowest pipeline
+  phase; now bound by deflate)
+- Scrubbing the colors slider no longer runs every superseded quantization
+  to completion — stale requests are skipped immediately
+- libimagequant is built with thin LTO
 
 ## v0.0.9
 
