@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.0.9
+
+- Fixed drag-and-drop onto the canvas being broken in v0.0.8: a duplicate object ID
+  in the Xcode project caused `ImageCanvasNSView+DragDrop.swift` to be silently
+  excluded from the build, so the app never accepted dropped files
+
 ## v0.0.8
 
 - Added "Optimize with ImageOptim" checkbox in the Save panel
