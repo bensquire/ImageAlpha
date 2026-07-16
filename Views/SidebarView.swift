@@ -52,11 +52,6 @@ struct SidebarView: View {
             Toggle("Dithered", isOn: $model.dithering)
                 .disabled(model.sourceImage == nil)
 
-            // IE6-friendly checkbox
-            Toggle("IE6-friendly alpha", isOn: $model.ieMode)
-                .help("Forces nearly-opaque colors to be fully opaque. Makes most images degrade gracefully in IE6")
-                .disabled(model.sourceImage == nil)
-
             Divider()
                 .padding(.vertical, 4)
 

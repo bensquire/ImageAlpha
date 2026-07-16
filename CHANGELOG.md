@@ -1,5 +1,29 @@
 # Changelog
 
+## Unreleased
+
+- Quantized PNGs are now written as true 8-bit indexed PNGs (PLTE/tRNS, with
+  1/2/4-bit packing for small palettes) instead of 32-bit RGBA — dramatically
+  smaller files, which is the point of the app
+- Removed the "IE6-friendly alpha" option: it has been a silent no-op since
+  the Rust libimagequant port (`liq_set_min_opacity` is a deprecated stub)
+- Semi-transparent pixels no longer lose precision before quantization
+  (vImage unpremultiply with correct rounding replaces integer math)
+- Fixed a race where loading a second image while the first was still being
+  analyzed could show the wrong "Original: N colors" count
+- Copy (Cmd+C) now puts a single pasteboard item with PNG and TIFF
+  representations on the clipboard, so paste targets get the quantized image
+- Scroll-wheel zoom now accumulates trackpad deltas instead of doubling the
+  zoom on every event
+- Documents now track unsaved changes (edited dot, save prompt on close), and
+  the status bar refreshes after overwriting the original file
+- Drag-and-drop only accepts image files, and dropping multiple images opens
+  each in its own window
+- Fractional zoom levels display with one decimal (e.g. "1.5×") instead of
+  truncating
+- Centralized preferences handling; removed debug logging; spelling
+  consistency ("colors")
+
 ## v0.0.9
 
 - Fixed drag-and-drop onto the canvas being broken in v0.0.8: a duplicate object ID

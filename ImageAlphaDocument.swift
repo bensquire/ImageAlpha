@@ -19,9 +19,17 @@ class ImageAlphaDocument: NSDocument {
             pendingURL = nil
         }
 
+        model.didChangeParameters = { [weak self] in
+            self?.updateChangeCount(.changeDone)
+        }
+
         let contentView = DocumentContentView(model: model) { [weak self] urls in
             guard let self = self, let url = urls.first else { return }
             self.loadFromURL(url)
+            // Additional dropped files each get their own document
+            for extraURL in urls.dropFirst() {
+                NSDocumentController.shared.openDocument(withContentsOf: extraURL, display: true) { _, _, _ in }
+            }
         }
 
         let window = NSWindow(
@@ -59,7 +67,7 @@ class ImageAlphaDocument: NSDocument {
         }
 
         let checkbox = NSButton(checkboxWithTitle: "Optimize with ImageOptim", target: nil, action: nil)
-        checkbox.state = UserDefaults.standard.bool(forKey: "optimizeWithImageOptim") ? .on : .off
+        checkbox.state = Preferences.optimizeWithImageOptim ? .on : .off
         let accessory = NSView(frame: NSRect(x: 0, y: 0, width: 250, height: 32))
         checkbox.frame = NSRect(x: 8, y: 4, width: 234, height: 24)
         accessory.addSubview(checkbox)
@@ -103,14 +111,17 @@ class ImageAlphaDocument: NSDocument {
         // Capture checkbox state before the panel closes
         let shouldOptimize = shouldOptimizeWithImageOptim()
         if let checkbox = optimizeWithImageOptimCheckbox {
-            UserDefaults.standard.set(checkbox.state == .on, forKey: "optimizeWithImageOptim")
+            Preferences.optimizeWithImageOptim = checkbox.state == .on
             optimizeWithImageOptimCheckbox = nil
         }
 
         super.save(to: url, ofType: typeName, for: saveOperation) { error in
             completionHandler(error)
-            if error == nil && shouldOptimize {
-                self.openInImageOptim(url: url)
+            if error == nil {
+                self.model.noteSaved(to: url)
+                if shouldOptimize {
+                    self.openInImageOptim(url: url)
+                }
             }
         }
     }
@@ -139,17 +150,23 @@ class ImageAlphaDocument: NSDocument {
             NSSound.beep()
             return
         }
+        // A single pasteboard item carrying both representations; separate
+        // items would let paste targets pick up the unquantized TIFF render.
+        let item = NSPasteboardItem()
+        item.setData(data, forType: .png)
+        if let tiff = image.tiffRepresentation {
+            item.setData(tiff, forType: .tiff)
+        }
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
-        pasteboard.setData(data, forType: .png)
-        pasteboard.writeObjects([image])
+        pasteboard.writeObjects([item])
     }
 
     private func shouldOptimizeWithImageOptim() -> Bool {
         if let checkbox = optimizeWithImageOptimCheckbox {
             return checkbox.state == .on
         }
-        return UserDefaults.standard.bool(forKey: "optimizeWithImageOptim")
+        return Preferences.optimizeWithImageOptim
     }
 
     private func openInImageOptim(url: URL) {

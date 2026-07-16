@@ -1,8 +1,16 @@
 import AppKit
+import UniformTypeIdentifiers
 
 // MARK: - Cursor & Drop Target
 
 extension ImageCanvasNSView {
+
+    /// Only accept file URLs whose content is an image, so the drag cursor
+    /// doesn't promise a drop that would silently fail.
+    private static let dropReadingOptions: [NSPasteboard.ReadingOptionKey: Any] = [
+        .urlReadingFileURLsOnly: true,
+        .urlReadingContentsConformToTypes: [UTType.image.identifier],
+    ]
 
     override func resetCursorRects() {
         // Add resize cursor over the split divider
@@ -20,7 +28,7 @@ extension ImageCanvasNSView {
     }
 
     override func draggingEntered(_ sender: any NSDraggingInfo) -> NSDragOperation {
-        if hasFileURLs(sender.draggingPasteboard) {
+        if hasImageFileURLs(sender.draggingPasteboard) {
             imageFade = 0.15
             return [.copy]
         }
@@ -33,20 +41,21 @@ extension ImageCanvasNSView {
 
     override func prepareForDragOperation(_ sender: any NSDraggingInfo) -> Bool {
         imageFade = 1.0
-        return hasFileURLs(sender.draggingPasteboard)
+        return hasImageFileURLs(sender.draggingPasteboard)
     }
 
     override func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {
-        guard let urls = sender.draggingPasteboard.readObjects(forClasses: [NSURL.self], options: [
-            .urlReadingFileURLsOnly: true
-        ]) as? [URL], !urls.isEmpty else {
+        guard let urls = sender.draggingPasteboard.readObjects(
+            forClasses: [NSURL.self],
+            options: Self.dropReadingOptions
+        ) as? [URL], !urls.isEmpty else {
             return false
         }
         delegate?.canvasDidReceiveDrop(urls: urls)
         return true
     }
 
-    func hasFileURLs(_ pasteboard: NSPasteboard) -> Bool {
-        pasteboard.availableType(from: [.fileURL]) != nil
+    func hasImageFileURLs(_ pasteboard: NSPasteboard) -> Bool {
+        pasteboard.canReadObject(forClasses: [NSURL.self], options: Self.dropReadingOptions)
     }
 }

@@ -18,6 +18,7 @@ class ImageCanvasNSView: NSView, NSDraggingSource, NSFilePromiseProviderDelegate
     private var leftShadow: CAGradientLayer!
 
     var mouseIsDown = false
+    var scrollZoomAccumulator: CGFloat = 0
     private var dragBackground = false
     private var dragStart: CGPoint = .zero
     private var potentialDragStart: CGPoint?
@@ -249,25 +250,6 @@ class ImageCanvasNSView: NSView, NSDraggingSource, NSFilePromiseProviderDelegate
         let clampedX = max(-halfWidth + 15, min(halfWidth - 15, imageOffset.x))
         let clampedY = max(-halfHeight + 15, min(halfHeight - 15, imageOffset.y))
         imageOffset = CGPoint(x: clampedX, y: clampedY)
-    }
-
-    // MARK: - Zoom value accessors (non-linear slider mapping)
-
-    static func sliderToZoom(_ sliderValue: CGFloat) -> CGFloat {
-        sliderValue < 3.0 ? 1.0 / (4.0 - sliderValue) : sliderValue - 2.0
-    }
-
-    static func zoomToSlider(_ z: CGFloat) -> CGFloat {
-        z < 1.0 ? max(0, 4.0 - 1.0 / z) : z + 2.0
-    }
-
-    static func zoomDisplayString(_ z: CGFloat) -> String {
-        if z >= 1.0 {
-            return "\(Int(z))\u{00D7}"
-        }
-        let fractions = ["\u{00BD}\u{00D7}", "\u{2153}\u{00D7}", "\u{00BC}\u{00D7}"]
-        let idx = min(2, max(0, Int(round(1.0 / z)) - 2))
-        return fractions[idx]
     }
 
     // MARK: - Layer updates
@@ -549,9 +531,21 @@ extension ImageCanvasNSView {
     }
 
     override func scrollWheel(with event: NSEvent) {
-        if event.deltaY > 0 {
+        // Trackpads emit many small precise deltas per gesture; accumulate to
+        // a threshold instead of doubling the zoom on every event.
+        let delta = event.scrollingDeltaY
+        if delta == 0 { return }
+        if (delta > 0) != (scrollZoomAccumulator > 0) {
+            scrollZoomAccumulator = 0
+        }
+        scrollZoomAccumulator += delta
+
+        let threshold: CGFloat = event.hasPreciseScrollingDeltas ? 40 : 3
+        if scrollZoomAccumulator >= threshold {
+            scrollZoomAccumulator = 0
             zoomIn(nil)
-        } else if event.deltaY < 0 {
+        } else if scrollZoomAccumulator <= -threshold {
+            scrollZoomAccumulator = 0
             zoomOut(nil)
         }
     }

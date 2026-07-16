@@ -11,7 +11,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillFinishLaunching(_ notification: Notification) {
-        UserDefaults.standard.register(defaults: ["optimizeWithImageOptim": true])
+        UserDefaults.standard.register(defaults: [Preferences.Key.optimizeWithImageOptim: true])
 
         // Build menu bar early so it's ready before any windows
         NSApp.mainMenu = buildMainMenu()
@@ -208,20 +208,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func setDitheredPreference(tag: Int, sender: NSMenuItem) {
         selectMenuItem(sender)
-
-        if tag < 0 {
-            UserDefaults.standard.removeObject(forKey: "dithered")
-        } else {
-            UserDefaults.standard.set(tag != 0, forKey: "dithered")
-        }
-
+        Preferences.dithering = tag < 0 ? nil : (tag != 0)
         forEachDocument { $0.model.updateDithering() }
     }
 
     private func updateDitheringMenuState() {
-        let dithered = UserDefaults.standard.object(forKey: "dithered")
         let tag: Int
-        if let val = dithered as? Bool {
+        if let val = Preferences.dithering {
             tag = val ? 1 : 0
         } else {
             tag = -1
@@ -236,15 +229,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Speed Menu
 
     @objc func setSpeed(_ sender: NSMenuItem) {
-        UserDefaults.standard.set(sender.tag, forKey: "speed")
+        Preferences.speed = sender.tag
         selectMenuItem(sender)
         updateSpeedMenuState()
         forEachDocument { $0.model.updateSpeed() }
     }
 
     private func updateSpeedMenuState() {
-        let savedSpeed = UserDefaults.standard.integer(forKey: "speed")
-        let activeSpeed = (savedSpeed >= 1 && savedSpeed <= 10) ? savedSpeed : 3
+        let activeSpeed = Preferences.speed
         if let toolsMenu = NSApp.mainMenu?.item(withTitle: "Tools")?.submenu {
             let speedItem = toolsMenu.items.first(where: { $0.submenu?.title == "Quality" })
             if let speedMenu = speedItem?.submenu {

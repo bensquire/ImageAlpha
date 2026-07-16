@@ -1,11 +1,10 @@
 import AppKit
+import Accelerate
 import CoreGraphics
-import ImageIO
 
 struct QuantizationOptions {
     var numberOfColors: Int = 256
     var dithering: Bool = false
-    var ieMode: Bool = false
     var speed: Int = 3
 }
 
@@ -36,7 +35,6 @@ enum QuantizationError: Error, LocalizedError {
 
 actor Quantizer {
 
-    // swiftlint:disable:next cyclomatic_complexity
     func quantize(cgImage: CGImage, options: QuantizationOptions) throws -> QuantizationResult {
         let width = cgImage.width
         let height = cgImage.height
@@ -62,15 +60,14 @@ actor Quantizer {
         }
 
         // Undo premultiplication for libimagequant (it expects straight alpha)
-        let pixels = pixelData.bindMemory(to: UInt8.self, capacity: pixelCount * 4)
-        for i in 0..<pixelCount {
-            let offset = i * 4
-            let alpha = Int(pixels[offset + 3])
-            if alpha > 0 && alpha < 255 {
-                pixels[offset + 0] = UInt8(min(255, Int(pixels[offset + 0]) * 255 / alpha))
-                pixels[offset + 1] = UInt8(min(255, Int(pixels[offset + 1]) * 255 / alpha))
-                pixels[offset + 2] = UInt8(min(255, Int(pixels[offset + 2]) * 255 / alpha))
-            }
+        var buffer = vImage_Buffer(
+            data: pixelData,
+            height: vImagePixelCount(height),
+            width: vImagePixelCount(width),
+            rowBytes: width * 4
+        )
+        guard vImageUnpremultiplyData_RGBA8888(&buffer, &buffer, vImage_Flags(kvImageNoFlags)) == kvImageNoError else {
+            throw QuantizationError.failedToGetPixelData
         }
 
         // Create libimagequant attr
@@ -81,10 +78,6 @@ actor Quantizer {
 
         liq_set_max_colors(attr, Int32(min(options.numberOfColors, 256)))
         liq_set_speed(attr, Int32(options.speed))
-
-        if options.ieMode {
-            liq_set_min_opacity(attr, 65)
-        }
 
         // Create libimagequant image
         guard let liqImage = liq_image_create_rgba(attr, pixelData, Int32(width), Int32(height), 0) else {
@@ -104,11 +97,10 @@ actor Quantizer {
         liq_set_dithering_level(result, options.dithering ? 1.0 : 0.0)
 
         // Remap image
-        let bufferSize = pixelCount
-        let remapped = UnsafeMutablePointer<UInt8>.allocate(capacity: bufferSize)
+        let remapped = UnsafeMutablePointer<UInt8>.allocate(capacity: pixelCount)
         defer { remapped.deallocate() }
 
-        let remapErr = liq_write_remapped_image(result, liqImage, remapped, bufferSize)
+        let remapErr = liq_write_remapped_image(result, liqImage, remapped, pixelCount)
         guard remapErr == LIQ_OK else {
             throw QuantizationError.failedToRemap(remapErr)
         }
@@ -120,64 +112,67 @@ actor Quantizer {
         let palette = palettePtr.pointee
         let colorCount = Int(palette.count)
 
-        // Build RGBA PNG from palette + indexed data
-        let outputPixels = UnsafeMutablePointer<UInt8>.allocate(capacity: pixelCount * 4)
-        defer { outputPixels.deallocate() }
-
-        withUnsafePointer(to: palette.entries) { entriesPtr in
+        let paletteEntries: [IndexedPNGEncoder.PaletteEntry] = withUnsafePointer(to: palette.entries) { entriesPtr in
             entriesPtr.withMemoryRebound(to: liq_color.self, capacity: 256) { colors in
-                for i in 0..<pixelCount {
-                    let idx = Int(remapped[i])
-                    let color = colors[idx]
-                    let offset = i * 4
-                    outputPixels[offset + 0] = color.r
-                    outputPixels[offset + 1] = color.g
-                    outputPixels[offset + 2] = color.b
-                    outputPixels[offset + 3] = color.a
+                (0..<colorCount).map { i in
+                    IndexedPNGEncoder.PaletteEntry(red: colors[i].r, green: colors[i].g, blue: colors[i].b, alpha: colors[i].a)
                 }
             }
         }
+        let indices = [UInt8](UnsafeBufferPointer(start: remapped, count: pixelCount))
 
-        // Create CGImage from RGBA output via data provider
-        let colorSpace = CGColorSpaceCreateDeviceRGB()
-        let dataLength = pixelCount * 4
-        guard let dataProvider = CGDataProvider(data: Data(bytes: outputPixels, count: dataLength) as CFData) else {
-            throw QuantizationError.failedToCreatePNG
-        }
-        guard let outputCGImage = CGImage(
-            width: width,
-            height: height,
-            bitsPerComponent: 8,
-            bitsPerPixel: 32,
-            bytesPerRow: width * 4,
-            space: colorSpace,
-            bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.last.rawValue),
-            provider: dataProvider,
-            decode: nil,
-            shouldInterpolate: false,
-            intent: .defaultIntent
+        // Encode a real indexed PNG (PLTE + tRNS); ImageIO can only write
+        // truecolor, which would forfeit most of the size reduction.
+        guard let pngData = IndexedPNGEncoder.encode(
+            width: width, height: height, palette: paletteEntries, pixels: indices
         ) else {
             throw QuantizationError.failedToCreatePNG
         }
 
-        // Write PNG via CGImageDestination
-        guard let pngData = createPNGData(from: outputCGImage) else {
+        guard let nsImage = Self.makeDisplayImage(
+            palette: paletteEntries, indices: indices, width: width, height: height
+        ) else {
             throw QuantizationError.failedToCreatePNG
         }
 
-        let nsImage = NSImage(cgImage: outputCGImage, size: NSSize(width: width, height: height))
         return QuantizationResult(image: nsImage, pngData: pngData)
     }
 
-    private func createPNGData(from cgImage: CGImage) -> Data? {
-        let data = NSMutableData()
-        guard let dest = CGImageDestinationCreateWithData(data as CFMutableData, "public.png" as CFString, 1, nil) else {
+    /// Expands palette + indices into an RGBA CGImage for on-screen display.
+    private static func makeDisplayImage(
+        palette: [IndexedPNGEncoder.PaletteEntry],
+        indices: [UInt8],
+        width: Int,
+        height: Int
+    ) -> NSImage? {
+        let pixelCount = width * height
+        var outputPixels = [UInt8](repeating: 0, count: pixelCount * 4)
+        for i in 0..<pixelCount {
+            let color = palette[Int(indices[i])]
+            let offset = i * 4
+            outputPixels[offset + 0] = color.red
+            outputPixels[offset + 1] = color.green
+            outputPixels[offset + 2] = color.blue
+            outputPixels[offset + 3] = color.alpha
+        }
+
+        guard let dataProvider = CGDataProvider(data: Data(outputPixels) as CFData),
+              let outputCGImage = CGImage(
+                  width: width,
+                  height: height,
+                  bitsPerComponent: 8,
+                  bitsPerPixel: 32,
+                  bytesPerRow: width * 4,
+                  space: CGColorSpaceCreateDeviceRGB(),
+                  bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.last.rawValue),
+                  provider: dataProvider,
+                  decode: nil,
+                  shouldInterpolate: false,
+                  intent: .defaultIntent
+              ) else {
             return nil
         }
-        CGImageDestinationAddImage(dest, cgImage, nil)
-        guard CGImageDestinationFinalize(dest) else {
-            return nil
-        }
-        return data as Data
+
+        return NSImage(cgImage: outputCGImage, size: NSSize(width: width, height: height))
     }
 }

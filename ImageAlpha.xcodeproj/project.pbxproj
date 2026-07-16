@@ -19,6 +19,9 @@
 		AA3000010000000A /* StatusBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA3000100000000A /* StatusBarView.swift */; };
 		AA3000010000000B /* DocumentContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA3000100000000B /* DocumentContentView.swift */; };
 		AA3000010000000C /* ImageCanvasNSView+DragDrop.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA3000100000000F /* ImageCanvasNSView+DragDrop.swift */; };
+		AA30000100000030 /* IndexedPNGEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA30001000000030 /* IndexedPNGEncoder.swift */; };
+		AA30000100000032 /* ImageCanvasNSView+ZoomScale.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA30001000000032 /* ImageCanvasNSView+ZoomScale.swift */; };
+		AA30000100000031 /* Preferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA30001000000031 /* Preferences.swift */; };
 		8D15AC340486D014006FF6A4 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1058C7A7FEA54F5311CA2CBB /* Cocoa.framework */; };
 		5A1C388D1F2A3D0400E21DAC /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5A1C38831F2A3CDB00E21DAC /* QuartzCore.framework */; };
 		AA30000100000010 /* libimagequant_sys.a in Frameworks */ = {isa = PBXBuildFile; fileRef = AA30001000000010 /* libimagequant_sys.a */; };
@@ -28,6 +31,10 @@
 		BB30000100000001 /* DocumentModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB30001000000001 /* DocumentModelTests.swift */; };
 		BB30000100000002 /* BackgroundStyleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB30001000000002 /* BackgroundStyleTests.swift */; };
 		BB30000100000003 /* QuantizerTypeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB30001000000003 /* QuantizerTypeTests.swift */; };
+		BB30000100000004 /* IndexedPNGEncoderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB30001000000004 /* IndexedPNGEncoderTests.swift */; };
+		BB30000100000005 /* QuantizerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB30001000000005 /* QuantizerTests.swift */; };
+		BB30000100000006 /* PreferencesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB30001000000006 /* PreferencesTests.swift */; };
+		BB30000100000007 /* ZoomDisplayTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB30001000000007 /* ZoomDisplayTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -62,6 +69,9 @@
 		AA3000100000000A /* StatusBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusBarView.swift; sourceTree = "<group>"; };
 		AA3000100000000B /* DocumentContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentContentView.swift; sourceTree = "<group>"; };
 		AA3000100000000F /* ImageCanvasNSView+DragDrop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ImageCanvasNSView+DragDrop.swift"; sourceTree = "<group>"; };
+		AA30001000000030 /* IndexedPNGEncoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IndexedPNGEncoder.swift; sourceTree = "<group>"; };
+		AA30001000000032 /* ImageCanvasNSView+ZoomScale.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ImageCanvasNSView+ZoomScale.swift"; sourceTree = "<group>"; };
+		AA30001000000031 /* Preferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Preferences.swift; sourceTree = "<group>"; };
 		AA3000100000000C /* ImageAlpha-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "ImageAlpha-Bridging-Header.h"; sourceTree = "<group>"; };
 		AA3000100000000D /* libimagequant.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = libimagequant.h; sourceTree = "<group>"; };
 		AA3000100000000E /* ImageAlpha.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ImageAlpha.entitlements; sourceTree = "<group>"; };
@@ -69,6 +79,10 @@
 		BB30001000000001 /* DocumentModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentModelTests.swift; sourceTree = "<group>"; };
 		BB30001000000002 /* BackgroundStyleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundStyleTests.swift; sourceTree = "<group>"; };
 		BB30001000000003 /* QuantizerTypeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuantizerTypeTests.swift; sourceTree = "<group>"; };
+		BB30001000000004 /* IndexedPNGEncoderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IndexedPNGEncoderTests.swift; sourceTree = "<group>"; };
+		BB30001000000005 /* QuantizerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuantizerTests.swift; sourceTree = "<group>"; };
+		BB30001000000006 /* PreferencesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesTests.swift; sourceTree = "<group>"; };
+		BB30001000000007 /* ZoomDisplayTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZoomDisplayTests.swift; sourceTree = "<group>"; };
 		BB30001000000010 /* ImageAlphaTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ImageAlphaTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -117,6 +131,8 @@
 				AA30001000000003 /* DocumentModel.swift */,
 				AA30001000000004 /* Quantizer.swift */,
 				AA30001000000005 /* BackgroundRenderer.swift */,
+				AA30001000000030 /* IndexedPNGEncoder.swift */,
+				AA30001000000031 /* Preferences.swift */,
 				AA3000100000000C /* ImageAlpha-Bridging-Header.h */,
 				AA3000100000000D /* libimagequant.h */,
 			);
@@ -133,6 +149,7 @@
 				AA3000100000000A /* StatusBarView.swift */,
 				AA3000100000000B /* DocumentContentView.swift */,
 				AA3000100000000F /* ImageCanvasNSView+DragDrop.swift */,
+				AA30001000000032 /* ImageCanvasNSView+ZoomScale.swift */,
 			);
 			name = Views;
 			path = Views;
@@ -174,6 +191,10 @@
 				BB30001000000001 /* DocumentModelTests.swift */,
 				BB30001000000002 /* BackgroundStyleTests.swift */,
 				BB30001000000003 /* QuantizerTypeTests.swift */,
+				BB30001000000004 /* IndexedPNGEncoderTests.swift */,
+				BB30001000000005 /* QuantizerTests.swift */,
+				BB30001000000006 /* PreferencesTests.swift */,
+				BB30001000000007 /* ZoomDisplayTests.swift */,
 			);
 			name = ImageAlphaTests;
 			path = ImageAlphaTests;
@@ -283,6 +304,9 @@
 				AA3000010000000A /* StatusBarView.swift in Sources */,
 				AA3000010000000B /* DocumentContentView.swift in Sources */,
 				AA3000010000000C /* ImageCanvasNSView+DragDrop.swift in Sources */,
+				AA30000100000030 /* IndexedPNGEncoder.swift in Sources */,
+				AA30000100000031 /* Preferences.swift in Sources */,
+				AA30000100000032 /* ImageCanvasNSView+ZoomScale.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -293,6 +317,10 @@
 				BB30000100000001 /* DocumentModelTests.swift in Sources */,
 				BB30000100000002 /* BackgroundStyleTests.swift in Sources */,
 				BB30000100000003 /* QuantizerTypeTests.swift in Sources */,
+				BB30000100000004 /* IndexedPNGEncoderTests.swift in Sources */,
+				BB30000100000005 /* QuantizerTests.swift in Sources */,
+				BB30000100000006 /* PreferencesTests.swift in Sources */,
+				BB30000100000007 /* ZoomDisplayTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

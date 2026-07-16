@@ -194,10 +194,10 @@ struct DocumentModelTests {
 
         // Assert
         #expect(result.contains("Original:"))
-        #expect(result.contains("50,000 colours"))
+        #expect(result.contains("50,000 colors"))
         #expect(result.contains("10,000 bytes"))
         #expect(result.contains("Quantized:"))
-        #expect(result.contains("256 colours"))
+        #expect(result.contains("256 colors"))
         #expect(result.contains("5,000 bytes"))
         #expect(result.contains("50% smaller"))
     }
@@ -256,6 +256,6 @@ struct DocumentModelTests {
         )
 
         // Assert
-        #expect(result.contains("24-bit colours"))
+        #expect(result.contains("24-bit colors"))
     }
 }

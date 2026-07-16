@@ -21,14 +21,6 @@ struct QuantizerTypeTests {
         #expect(!options.dithering)
     }
 
-    @Test func defaultIeModeIsFalse() {
-        // Act
-        let options = QuantizationOptions()
-
-        // Assert
-        #expect(!options.ieMode)
-    }
-
     @Test func defaultSpeed() {
         // Act
         let options = QuantizationOptions()

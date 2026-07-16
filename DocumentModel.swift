@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import os
 
 @MainActor
 class DocumentModel: ObservableObject {
@@ -7,7 +8,6 @@ class DocumentModel: ObservableObject {
     @Published var sourceCGImage: CGImage?
     @Published var numberOfColors: Int = 256
     @Published var dithering: Bool = false
-    @Published var ieMode: Bool = false
     @Published var speed: Int = 3
     @Published var showOriginal: Bool = false { didSet { if showOriginal { compareMode = false } } }
     @Published var quantizedImage: NSImage?
@@ -20,54 +20,69 @@ class DocumentModel: ObservableObject {
     @Published var sourceURL: URL?
     @Published var sourceColorCount: Int?
 
+    /// Called when the user changes a quantization parameter while an image
+    /// is loaded, so the owning document can mark itself edited.
+    var didChangeParameters: (() -> Void)?
+
+    private static let logger = Logger(subsystem: "net.pornel.ImageAlpha", category: "DocumentModel")
+
     private let quantizer = Quantizer()
     private var quantizationTask: Task<Void, Never>?
     private var cancellables = Set<AnyCancellable>()
+    private var sourceFileData: Data?
+    /// Incremented on every load; async work captures the current value and
+    /// discards its result if another image was loaded in the meantime.
+    private var loadGeneration = 0
 
     init() {
-        let dithered = UserDefaults.standard.object(forKey: "dithered")
-        if let dithered = dithered as? Bool {
+        if let dithered = Preferences.dithering {
             self.dithering = dithered
         }
+        self.speed = Preferences.speed
 
-        let speed = UserDefaults.standard.integer(forKey: "speed")
-        if speed >= 1 && speed <= 10 {
-            self.speed = speed
-        }
-
-        Publishers.CombineLatest4($numberOfColors, $dithering, $ieMode, $speed)
+        Publishers.CombineLatest3($numberOfColors, $dithering, $speed)
             .dropFirst()
             .debounce(for: .milliseconds(50), scheduler: RunLoop.main)
             .sink { [weak self] _ in
-                self?.requestQuantization()
+                guard let self else { return }
+                if self.sourceImage != nil {
+                    self.didChangeParameters?()
+                }
+                self.requestQuantization()
             }
             .store(in: &cancellables)
     }
 
     @discardableResult
     func loadImage(from url: URL) -> Bool {
-        guard let image = NSImage(contentsOf: url) else { NSLog("loadImage: NSImage failed for %@", url.path); return false }
-        NSLog("loadImage: loaded %@ size=%@", url.lastPathComponent, NSStringFromSize(image.size))
+        guard let image = NSImage(contentsOf: url) else {
+            Self.logger.error("loadImage: NSImage failed for \(url.path, privacy: .public)")
+            return false
+        }
+        loadGeneration += 1
         sourceURL = url
         sourceImage = image
 
-        if let attrs = try? FileManager.default.attributesOfItem(atPath: url.path),
-           let size = attrs[.size] as? Int {
-            sourceFileSize = size
-        }
+        sourceFileData = try? Data(contentsOf: url)
+        sourceFileSize = sourceFileData?.count
 
         // Get CGImage from NSImage
         var rect = NSRect(origin: .zero, size: image.size)
         sourceCGImage = image.cgImage(forProposedRect: &rect, context: nil, hints: nil)
-        guard sourceCGImage != nil else { NSLog("loadImage: cgImage failed for %@", url.path); return false }
+        guard sourceCGImage != nil else {
+            Self.logger.error("loadImage: cgImage failed for \(url.path, privacy: .public)")
+            return false
+        }
 
         sourceColorCount = nil
         if let cg = sourceCGImage {
+            let generation = loadGeneration
             Task.detached { [weak self] in
                 let count = Self.countUniqueColors(in: cg)
-                await MainActor.run {
-                    self?.sourceColorCount = count
-                    self?.updateStatus()
+                await MainActor.run { [weak self] in
+                    guard let self, self.loadGeneration == generation else { return }
+                    self.sourceColorCount = count
+                    self.updateStatus()
                 }
             }
         }
@@ -76,14 +91,20 @@ class DocumentModel: ObservableObject {
         return true
     }
 
+    /// Refresh source stats after the quantized output overwrote the original file.
+    func noteSaved(to url: URL) {
+        guard url == sourceURL, let data = quantizedPNGData else { return }
+        sourceFileData = data
+        sourceFileSize = data.count
+        updateStatus()
+    }
+
     func requestQuantization() {
-        guard let cgImage = sourceCGImage else { NSLog("requestQuantization: no sourceCGImage"); return }
+        guard let cgImage = sourceCGImage else { return }
 
         // If numberOfColors > 256, show original (no quantization needed)
         if numberOfColors > 256 {
-            if let url = sourceURL {
-                quantizedPNGData = try? Data(contentsOf: url)
-            }
+            quantizedPNGData = sourceFileData
             quantizedImage = sourceImage
             updateStatus()
             return
@@ -98,15 +119,12 @@ class DocumentModel: ObservableObject {
                 let options = QuantizationOptions(
                     numberOfColors: numberOfColors,
                     dithering: dithering,
-                    ieMode: ieMode,
                     speed: speed
                 )
-                NSLog("requestQuantization: calling quantizer colors=%d dither=%d", numberOfColors, dithering ? 1 : 0)
                 let result = try await quantizer.quantize(cgImage: cgImage, options: options)
 
-                guard !Task.isCancelled else { NSLog("requestQuantization: cancelled"); return }
+                guard !Task.isCancelled else { return }
 
-                NSLog("requestQuantization: got result, image=%@, pngData=%d bytes", result.image, result.pngData.count)
                 self.quantizedImage = result.image
                 self.quantizedPNGData = result.pngData
                 self.isBusy = false
@@ -114,24 +132,18 @@ class DocumentModel: ObservableObject {
             } catch {
                 guard !Task.isCancelled else { return }
                 self.isBusy = false
-                NSLog("requestQuantization: ERROR %@", error.localizedDescription)
+                Self.logger.error("requestQuantization failed: \(error.localizedDescription, privacy: .public)")
                 self.statusMessage = "Error: \(error.localizedDescription)"
             }
         }
     }
 
     func updateDithering() {
-        let dithered = UserDefaults.standard.object(forKey: "dithered")
-        if let dithered = dithered as? Bool {
-            self.dithering = dithered
-        } else {
-            self.dithering = false
-        }
+        self.dithering = Preferences.dithering ?? false
     }
 
     func updateSpeed() {
-        let savedSpeed = UserDefaults.standard.integer(forKey: "speed")
-        self.speed = (savedSpeed >= 1 && savedSpeed <= 10) ? savedSpeed : 3
+        self.speed = Preferences.speed
     }
 
     private func updateStatus() {
@@ -160,7 +172,7 @@ class DocumentModel: ObservableObject {
         var originalParts: [String] = []
         if let count = sourceColorCount {
             let countString = fmt.string(from: NSNumber(value: count)) ?? "\(count)"
-            originalParts.append("\(countString) colours")
+            originalParts.append("\(countString) colors")
         }
         if let sourceSize, sourceSize > 0 {
             let sizeString = fmt.string(from: NSNumber(value: sourceSize)) ?? "\(sourceSize)"
@@ -171,7 +183,7 @@ class DocumentModel: ObservableObject {
         let quantizedSizeStr = fmt.string(from: NSNumber(value: quantizedSize)) ?? "\(quantizedSize)"
         var quantizedParts: [String] = []
         if sourceColorCount != nil {
-            quantizedParts.append("\(colorsDisplay) colours")
+            quantizedParts.append("\(colorsDisplay) colors")
         }
         var bytesStr = "\(quantizedSizeStr) bytes"
         if let sourceSize, sourceSize > 0 {

@@ -43,7 +43,6 @@ struct ImageCanvasView: NSViewRepresentable {
 
         // Update original image
         if coordinator.lastSourceImage !== model.sourceImage {
-            NSLog("updateNSView: setting originalImage=%@", model.sourceImage?.description ?? "nil")
             coordinator.lastSourceImage = model.sourceImage
             nsView.originalImage = model.sourceImage
             if model.sourceImage != nil {
