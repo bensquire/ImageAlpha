@@ -16,7 +16,6 @@ class DocumentModel: ObservableObject {
     @Published var isBusy: Bool = false
     @Published var statusMessage: String = "To get started, drop PNG image onto main area on the right"
     @Published var selectedBackground: BackgroundStyle = .checkerboard
-    @Published var sourceFileSize: Int?
     @Published var sourceURL: URL?
     @Published var sourceColorCount: Int?
 
@@ -64,7 +63,6 @@ class DocumentModel: ObservableObject {
         sourceImage = image
 
         sourceFileData = try? Data(contentsOf: url)
-        sourceFileSize = sourceFileData?.count
 
         // Get CGImage from NSImage
         var rect = NSRect(origin: .zero, size: image.size)
@@ -95,7 +93,6 @@ class DocumentModel: ObservableObject {
     func noteSaved(to url: URL) {
         guard url == sourceURL, let data = quantizedPNGData else { return }
         sourceFileData = data
-        sourceFileSize = data.count
         updateStatus()
     }
 
@@ -154,7 +151,7 @@ class DocumentModel: ObservableObject {
 
         statusMessage = Self.formatStatus(
             quantizedSize: quantizedPNGData!.count,
-            sourceSize: sourceFileSize,
+            sourceSize: sourceFileData?.count,
             sourceColorCount: sourceColorCount,
             colorsDisplay: colorsDisplayString
         )

@@ -36,14 +36,33 @@ struct DecodedImage {
     }
 }
 
+/// Builds a straight-alpha RGBA CGImage from raw bytes.
+func makeTestCGImage(width: Int, height: Int, rgba: [UInt8]) throws -> CGImage {
+    let provider = try #require(CGDataProvider(data: Data(rgba) as CFData))
+    return try #require(CGImage(
+        width: width, height: height, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: width * 4,
+        space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.last.rawValue),
+        provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent
+    ))
+}
+
+/// Encodes via ImageIO (truecolor PNG) — the size baseline indexed output must beat.
+func encodeTruecolorPNG(_ image: CGImage) throws -> Data {
+    let data = NSMutableData()
+    let dest = try #require(CGImageDestinationCreateWithData(data, "public.png" as CFString, 1, nil))
+    CGImageDestinationAddImage(dest, image, nil)
+    CGImageDestinationFinalize(dest)
+    return data as Data
+}
+
 struct IndexedPNGEncoderTests {
 
     typealias Entry = IndexedPNGEncoder.PaletteEntry
 
     // MARK: - Helpers
 
-    private func decodeRGBA(_ pngData: Data) -> DecodedImage? {
-        DecodedImage(pngData: pngData)
+    private func decodeRGBA(_ pngData: Data) throws -> DecodedImage {
+        try #require(DecodedImage(pngData: pngData))
     }
 
     /// PNG IHDR layout: byte 24 is bit depth, byte 25 is color type.
@@ -141,7 +160,7 @@ struct IndexedPNGEncoderTests {
 
         // Act
         let png = try #require(IndexedPNGEncoder.encode(width: width, height: height, palette: palette, pixels: pixels))
-        let decoded = try #require(decodeRGBA(png))
+        let decoded = try decodeRGBA(png)
 
         // Assert
         #expect(decoded.width == width)
@@ -165,7 +184,7 @@ struct IndexedPNGEncoderTests {
 
         // Act
         let png = try #require(IndexedPNGEncoder.encode(width: 2, height: 2, palette: palette, pixels: pixels))
-        let decoded = try #require(decodeRGBA(png))
+        let decoded = try decodeRGBA(png)
 
         // Assert
         #expect(decoded.rgba[3] == 0)   // pixel 0 alpha
@@ -186,7 +205,7 @@ struct IndexedPNGEncoderTests {
 
         // Act
         let png = try #require(IndexedPNGEncoder.encode(width: width, height: height, palette: palette, pixels: pixels))
-        let decoded = try #require(decodeRGBA(png))
+        let decoded = try decodeRGBA(png)
 
         // Assert
         for i in 0..<(width * height) {
@@ -203,7 +222,7 @@ struct IndexedPNGEncoderTests {
 
         // Act
         let png = try #require(IndexedPNGEncoder.encode(width: width, height: height, palette: palette, pixels: pixels))
-        let decoded = try #require(decodeRGBA(png))
+        let decoded = try decodeRGBA(png)
 
         // Assert
         for i in 0..<(width * height) {
@@ -259,22 +278,14 @@ struct IndexedPNGEncoderTests {
             let entry = palette[Int(pixels[i])]
             rgba[i * 4] = entry.red; rgba[i * 4 + 1] = entry.green; rgba[i * 4 + 2] = entry.blue; rgba[i * 4 + 3] = 255
         }
-        let provider = try #require(CGDataProvider(data: Data(rgba) as CFData))
-        let cgImage = try #require(CGImage(
-            width: width, height: height, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: width * 4,
-            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.last.rawValue),
-            provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent
-        ))
-        let imageIOData = NSMutableData()
-        let dest = try #require(CGImageDestinationCreateWithData(imageIOData, "public.png" as CFString, 1, nil))
-        CGImageDestinationAddImage(dest, cgImage, nil)
-        CGImageDestinationFinalize(dest)
+        let cgImage = try makeTestCGImage(width: width, height: height, rgba: rgba)
+        let imageIOData = try encodeTruecolorPNG(cgImage)
 
         // Act
         let indexed = try #require(IndexedPNGEncoder.encode(width: width, height: height, palette: palette, pixels: pixels))
 
         // Assert
-        #expect(indexed.count < imageIOData.length)
+        #expect(indexed.count < imageIOData.count)
     }
 
     // MARK: - Invalid input

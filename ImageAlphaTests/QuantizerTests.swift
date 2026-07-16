@@ -9,15 +9,6 @@ struct QuantizerTests {
 
     // MARK: - Helpers
 
-    private func makeCGImage(width: Int, height: Int, rgba: [UInt8]) throws -> CGImage {
-        let provider = try #require(CGDataProvider(data: Data(rgba) as CFData))
-        return try #require(CGImage(
-            width: width, height: height, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: width * 4,
-            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.last.rawValue),
-            provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent
-        ))
-    }
-
     /// A width×height image cycling through the given opaque RGB colors.
     private func makeImage(width: Int, height: Int, colors: [[UInt8]]) throws -> CGImage {
         var rgba = [UInt8](repeating: 0, count: width * height * 4)
@@ -26,7 +17,7 @@ struct QuantizerTests {
             rgba[i * 4] = color[0]; rgba[i * 4 + 1] = color[1]; rgba[i * 4 + 2] = color[2]
             rgba[i * 4 + 3] = color.count > 3 ? color[3] : 255
         }
-        return try makeCGImage(width: width, height: height, rgba: rgba)
+        return try makeTestCGImage(width: width, height: height, rgba: rgba)
     }
 
     private func decodeRGBA(_ pngData: Data) throws -> DecodedImage {
@@ -81,7 +72,7 @@ struct QuantizerTests {
                 rgba[i] = UInt8(x * 4); rgba[i + 1] = UInt8(y * 4); rgba[i + 2] = UInt8((x + y) * 2); rgba[i + 3] = 255
             }
         }
-        let image = try makeCGImage(width: width, height: height, rgba: rgba)
+        let image = try makeTestCGImage(width: width, height: height, rgba: rgba)
         let quantizer = Quantizer()
         let options = QuantizationOptions(numberOfColors: 16)
 
@@ -125,7 +116,7 @@ struct QuantizerTests {
                 rgba[i] = 255; rgba[i + 3] = 255
             }
         }
-        let image = try makeCGImage(width: width, height: height, rgba: rgba)
+        let image = try makeTestCGImage(width: width, height: height, rgba: rgba)
         let quantizer = Quantizer()
 
         // Act
@@ -187,11 +178,8 @@ struct QuantizerTests {
             rgba[i * 4 + 2] = UInt8((seed >> 49) & 0xFF)
             rgba[i * 4 + 3] = 255
         }
-        let image = try makeCGImage(width: width, height: height, rgba: rgba)
-        let sourcePNG = NSMutableData()
-        let dest = try #require(CGImageDestinationCreateWithData(sourcePNG, "public.png" as CFString, 1, nil))
-        CGImageDestinationAddImage(dest, image, nil)
-        CGImageDestinationFinalize(dest)
+        let image = try makeTestCGImage(width: width, height: height, rgba: rgba)
+        let sourcePNG = try encodeTruecolorPNG(image)
         let quantizer = Quantizer()
         let options = QuantizationOptions(numberOfColors: 256)
 
@@ -199,6 +187,6 @@ struct QuantizerTests {
         let result = try await quantizer.quantize(cgImage: image, options: options)
 
         // Assert
-        #expect(result.pngData.count < sourcePNG.length)
+        #expect(result.pngData.count < sourcePNG.count)
     }
 }
