@@ -2,11 +2,27 @@ import AppKit
 import Combine
 import os
 
+enum QuantizationMode: String, CaseIterable {
+    /// User picks a fixed palette size.
+    case colors
+    /// User picks a quality target; the smallest palette that reaches it wins.
+    case quality
+}
+
+/// What the last completed quantization actually produced.
+struct QuantizationStats: Equatable {
+    var paletteCount: Int
+    /// libimagequant's 0–100 quality estimate; nil when it doesn't compute one.
+    var quality: Int?
+}
+
 @MainActor
 class DocumentModel: ObservableObject {
     @Published var sourceImage: NSImage?
     @Published var sourceCGImage: CGImage?
     @Published var numberOfColors: Int = 256
+    @Published var quantizationMode: QuantizationMode = .colors
+    @Published var targetQuality: Int = 80
     @Published var dithering: Bool = false
     @Published var speed: Int = 3
     @Published var showOriginal: Bool = false { didSet { if showOriginal { compareMode = false } } }
@@ -18,6 +34,9 @@ class DocumentModel: ObservableObject {
     @Published var selectedBackground: BackgroundStyle = .checkerboard
     @Published var sourceURL: URL?
     @Published var sourceColorCount: Int?
+    /// Stats for the current result; nil until quantization completes or in
+    /// 24-bit passthrough.
+    @Published var resultStats: QuantizationStats?
 
     /// Called when the user changes a quantization parameter while an image
     /// is loaded, so the owning document can mark itself edited.
@@ -29,6 +48,12 @@ class DocumentModel: ObservableObject {
     private var quantizationTask: Task<Void, Never>?
     private var cancellables = Set<AnyCancellable>()
     private var sourceFileData: Data?
+    /// Options that produced the current quantized output, so repeat requests
+    /// with identical parameters are skipped.
+    private var completedOptions: QuantizationOptions?
+    /// Most recent results keyed by their options, capped at two entries, so
+    /// toggling between modes restores either side without re-quantizing.
+    private var recentResults: [(options: QuantizationOptions, result: QuantizationResult)] = []
     /// Incremented on every load; async work captures the current value and
     /// discards its result if another image was loaded in the meantime.
     private var loadGeneration = 0
@@ -39,7 +64,9 @@ class DocumentModel: ObservableObject {
         }
         self.speed = Preferences.speed
 
-        Publishers.CombineLatest3($numberOfColors, $dithering, $speed)
+        let paletteParams = Publishers.CombineLatest3($numberOfColors, $dithering, $speed)
+        let qualityParams = Publishers.CombineLatest($quantizationMode, $targetQuality)
+        Publishers.CombineLatest(paletteParams, qualityParams)
             .dropFirst()
             .debounce(for: .milliseconds(50), scheduler: RunLoop.main)
             .sink { [weak self] _ in
@@ -73,6 +100,9 @@ class DocumentModel: ObservableObject {
         }
 
         sourceColorCount = nil
+        resultStats = nil
+        completedOptions = nil
+        recentResults.removeAll()
         if let cg = sourceCGImage {
             let generation = loadGeneration
             Task.detached { [weak self] in
@@ -96,36 +126,55 @@ class DocumentModel: ObservableObject {
         updateStatus()
     }
 
+    /// How the current parameters translate into quantizer options; nil means
+    /// 24-bit passthrough (no quantization). Owns all mode interpretation.
+    var effectiveOptions: QuantizationOptions? {
+        if quantizationMode == .colors && numberOfColors > 256 { return nil }
+        return QuantizationOptions(
+            numberOfColors: quantizationMode == .quality ? 256 : numberOfColors,
+            dithering: dithering,
+            speed: speed,
+            qualityTarget: quantizationMode == .quality ? targetQuality : nil
+        )
+    }
+
     func requestQuantization() {
         guard let cgImage = sourceCGImage else { return }
+        quantizationTask?.cancel()
 
-        // If numberOfColors > 256, show original (no quantization needed)
-        if numberOfColors > 256 {
+        guard let options = effectiveOptions else {
+            // 24-bit passthrough: show the original file as-is
             quantizedPNGData = sourceFileData
             quantizedImage = sourceImage
+            resultStats = nil
+            completedOptions = nil
+            isBusy = false
             updateStatus()
             return
         }
 
-        // Cancel previous quantization
-        quantizationTask?.cancel()
-        isBusy = true
+        // The current output already came from identical options — nothing to do.
+        if options == completedOptions && quantizedPNGData != nil {
+            isBusy = false
+            return
+        }
 
+        // Toggling modes revisits recently used options; restore that result.
+        if let cached = recentResults.first(where: { $0.options == options })?.result {
+            apply(cached, for: options)
+            isBusy = false
+            return
+        }
+
+        isBusy = true
         quantizationTask = Task {
             do {
-                let options = QuantizationOptions(
-                    numberOfColors: numberOfColors,
-                    dithering: dithering,
-                    speed: speed
-                )
                 let result = try await quantizer.quantize(cgImage: cgImage, options: options)
 
                 guard !Task.isCancelled else { return }
 
-                self.quantizedImage = result.image
-                self.quantizedPNGData = result.pngData
+                self.apply(result, for: options)
                 self.isBusy = false
-                self.updateStatus()
             } catch {
                 guard !Task.isCancelled else { return }
                 self.isBusy = false
@@ -143,6 +192,20 @@ class DocumentModel: ObservableObject {
         self.speed = Preferences.speed
     }
 
+    /// Publishes a quantization result and records it for reuse.
+    private func apply(_ result: QuantizationResult, for options: QuantizationOptions) {
+        quantizedImage = result.image
+        quantizedPNGData = result.pngData
+        resultStats = QuantizationStats(paletteCount: result.paletteCount, quality: result.quality)
+        completedOptions = options
+        recentResults.removeAll { $0.options == options }
+        recentResults.insert((options, result), at: 0)
+        if recentResults.count > 2 {
+            recentResults.removeLast()
+        }
+        updateStatus()
+    }
+
     private func updateStatus() {
         guard quantizedPNGData != nil else {
             statusMessage = sourceImage != nil ? "Processing..." : "To get started, drop PNG image onto main area on the right"
@@ -153,7 +216,8 @@ class DocumentModel: ObservableObject {
             quantizedSize: quantizedPNGData!.count,
             sourceSize: sourceFileData?.count,
             sourceColorCount: sourceColorCount,
-            colorsDisplay: colorsDisplayString
+            colorsDisplay: colorsDisplayString,
+            quality: resultStats?.quality
         )
     }
 
@@ -161,7 +225,8 @@ class DocumentModel: ObservableObject {
         quantizedSize: Int,
         sourceSize: Int?,
         sourceColorCount: Int?,
-        colorsDisplay: String
+        colorsDisplay: String,
+        quality: Int? = nil
     ) -> String {
         let fmt = decimalFormatter
 
@@ -189,6 +254,9 @@ class DocumentModel: ObservableObject {
             bytesStr += " (\(pct)% \(label))"
         }
         quantizedParts.append(bytesStr)
+        if let quality {
+            quantizedParts.append("quality: \(quality)%")
+        }
 
         if sourceColorCount == nil && originalParts.isEmpty {
             return "Quantized: \(quantizedParts.joined(separator: ", "))."
@@ -260,6 +328,10 @@ class DocumentModel: ObservableObject {
     }
 
     var colorsDisplayString: String {
+        if quantizationMode == .quality {
+            if let count = resultStats?.paletteCount { return "\(count)" }
+            return "…"
+        }
         if numberOfColors > 256 { return "24-bit" }
         return "\(numberOfColors)"
     }

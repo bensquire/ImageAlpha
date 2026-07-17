@@ -2,15 +2,22 @@ import AppKit
 import Accelerate
 import CoreGraphics
 
-struct QuantizationOptions {
+struct QuantizationOptions: Equatable {
     var numberOfColors: Int = 256
     var dithering: Bool = false
     var speed: Int = 3
+    /// 0–100 target; when set, libimagequant uses the fewest colors (up to
+    /// `numberOfColors`) that still reach this quality.
+    var qualityTarget: Int?
 }
 
 struct QuantizationResult {
     var image: NSImage
     var pngData: Data
+    var paletteCount: Int
+    /// libimagequant's 0–100 estimate of how well the palette matches the
+    /// source; nil when the library doesn't compute it (high speed settings).
+    var quality: Int?
 }
 
 enum QuantizationError: Error, LocalizedError {
@@ -80,8 +87,7 @@ actor Quantizer {
         }
         defer { liq_attr_destroy(attr) }
 
-        liq_set_max_colors(attr, Int32(min(options.numberOfColors, 256)))
-        liq_set_speed(attr, Int32(options.speed))
+        Self.configure(attr, with: options)
 
         // Create libimagequant image
         guard let liqImage = liq_image_create_rgba(attr, pixelData, Int32(width), Int32(height), 0) else {
@@ -140,7 +146,22 @@ actor Quantizer {
             throw QuantizationError.failedToCreatePNG
         }
 
-        return QuantizationResult(image: nsImage, pngData: pngData)
+        let measuredQuality = liq_get_quantization_quality(result)
+        return QuantizationResult(
+            image: nsImage,
+            pngData: pngData,
+            paletteCount: colorCount,
+            quality: measuredQuality >= 0 ? Int(measuredQuality) : nil
+        )
+    }
+
+    private static func configure(_ attr: OpaquePointer, with options: QuantizationOptions) {
+        liq_set_max_colors(attr, Int32(min(options.numberOfColors, 256)))
+        liq_set_speed(attr, Int32(options.speed))
+        if let target = options.qualityTarget {
+            // Min 0 so quantization never fails outright; max is the target.
+            liq_set_quality(attr, 0, Int32(max(0, min(target, 100))))
+        }
     }
 
     /// Expands palette + indices into an RGBA CGImage for on-screen display.

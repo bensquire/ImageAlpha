@@ -255,17 +255,28 @@ class ImageCanvasNSView: NSView, NSDraggingSource, NSFilePromiseProviderDelegate
     // MARK: - Layer updates
 
     private func updateImageLayer() {
-        let img = showOriginal ? originalImage : displayImage
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        if let img = img {
+        syncLayerContents()
+        repositionImageLayer()
+        CATransaction.commit()
+    }
+
+    /// Single owner of layer *contents*: the main layer shows the quantized
+    /// (or original, when toggled) image, and the compare split's layer always
+    /// mirrors the original — so a newly loaded image can't split against the
+    /// previous one. Geometry is owned by repositionImageLayer/updateSplitLayers.
+    private func syncLayerContents() {
+        if let img = showOriginal ? originalImage : displayImage {
             var rect = NSRect(origin: .zero, size: img.size)
             imageLayer.contents = img.cgImage(forProposedRect: &rect, context: nil, hints: nil)
         } else {
             imageLayer.contents = nil
         }
-        repositionImageLayer()
-        CATransaction.commit()
+        if originalLayer != nil, let original = originalImage {
+            var rect = NSRect(origin: .zero, size: original.size)
+            originalLayer?.contents = original.cgImage(forProposedRect: &rect, context: nil, hints: nil)
+        }
     }
 
     private func updateSplitLayers() {
@@ -285,13 +296,13 @@ class ImageCanvasNSView: NSView, NSDraggingSource, NSFilePromiseProviderDelegate
                 divider.backgroundColor = CGColor(gray: 1, alpha: 0.8)
                 layer?.insertSublayer(divider, above: oLayer)
                 splitDividerLayer = divider
+
+                // First activation: populate the just-created layer. After
+                // this, syncLayerContents keeps it fresh on image changes, so
+                // divider drags don't re-convert the image every mouse move.
+                syncLayerContents()
             }
 
-            // Set original image contents on the original layer
-            if let img = originalImage {
-                var rect = NSRect(origin: .zero, size: img.size)
-                originalLayer?.contents = img.cgImage(forProposedRect: &rect, context: nil, hints: nil)
-            }
             originalLayer?.isHidden = false
             splitDividerLayer?.isHidden = false
 
@@ -352,26 +363,6 @@ class ImageCanvasNSView: NSView, NSDraggingSource, NSFilePromiseProviderDelegate
             splitDividerLayer?.frame = CGRect(x: dividerX - 2, y: 0, width: 4, height: bounds.height)
         }
         CATransaction.commit()
-    }
-
-    // MARK: - Image scale helpers
-
-    private func getScale(of image: NSImage) -> NSSize {
-        guard let rep = image.representations.first else { return .zero }
-        let imageSize = image.size
-        guard imageSize.width > 0, imageSize.height > 0 else { return .zero }
-        return NSSize(width: CGFloat(rep.pixelsWide) / imageSize.width, height: CGFloat(rep.pixelsHigh) / imageSize.height)
-    }
-
-    private func setScale(_ scale: NSSize, of image: NSImage) {
-        guard let rep = image.representations.first, scale.width > 0, scale.height > 0 else { return }
-        image.size = NSSize(width: CGFloat(rep.pixelsWide) / scale.width, height: CGFloat(rep.pixelsHigh) / scale.height)
-    }
-
-    private func syncImageScale() {
-        guard let original = originalImage, let display = displayImage else { return }
-        let scale = getScale(of: original)
-        setScale(scale, of: display)
     }
 
     // MARK: - NSDraggingSource

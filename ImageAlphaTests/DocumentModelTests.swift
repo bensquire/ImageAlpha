@@ -246,6 +246,63 @@ struct DocumentModelTests {
         #expect(!result.contains("bigger"))
     }
 
+    @Test func formatStatusIncludesQualityWhenAvailable() {
+        // Act
+        let result = DocumentModel.formatStatus(
+            quantizedSize: 5000,
+            sourceSize: 10000,
+            sourceColorCount: 100,
+            colorsDisplay: "256",
+            quality: 93
+        )
+
+        // Assert
+        #expect(result.contains("quality: 93%"))
+    }
+
+    @Test func formatStatusOmitsQualityWhenNil() {
+        // Act
+        let result = DocumentModel.formatStatus(
+            quantizedSize: 5000,
+            sourceSize: 10000,
+            sourceColorCount: 100,
+            colorsDisplay: "256",
+            quality: nil
+        )
+
+        // Assert
+        #expect(!result.contains("quality"))
+    }
+
+    // MARK: - Quality mode display
+
+    @Test func colorsDisplayStringInQualityModeShowsResultPaletteCount() async {
+        // Arrange
+        let model = await DocumentModel()
+        await MainActor.run {
+            model.quantizationMode = .quality
+            model.resultStats = QuantizationStats(paletteCount: 152, quality: nil)
+        }
+
+        // Act
+        let display = await model.colorsDisplayString
+
+        // Assert
+        #expect(display == "152")
+    }
+
+    @Test func colorsDisplayStringInQualityModeWithoutResultIsPlaceholder() async {
+        // Arrange
+        let model = await DocumentModel()
+        await MainActor.run { model.quantizationMode = .quality }
+
+        // Act
+        let display = await model.colorsDisplayString
+
+        // Assert
+        #expect(display == "…")
+    }
+
     @Test func formatStatusWith24BitColors() {
         // Act
         let result = DocumentModel.formatStatus(

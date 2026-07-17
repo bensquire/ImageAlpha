@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.0.11
+
+- Added Quality mode: pick a 0–100% quality target and the fewest colors that
+  reach it are chosen automatically, instead of fixing the palette size
+- The status bar now shows libimagequant's measured quality for every result
+- Fixed the Compare split showing the previously loaded image on one side
+  after dropping a new image while Compare was active
+- Toggling between Colors and Quality modes with unchanged settings restores
+  the cached result instantly instead of re-quantizing
+- Dragging the Compare divider no longer re-converts the image on every
+  mouse move
+- New screenshot showing the Quality mode UI; added `samples/dice.png` as an
+  alpha-heavy manual test image
+- Internal cleanups: quantizer options centralized in one place, result state
+  consolidated, sidebar layout and test fixtures deduplicated
+
 ## v0.0.10
 
 - Quantized PNGs are now written as true 8-bit indexed PNGs (PLTE/tRNS, with

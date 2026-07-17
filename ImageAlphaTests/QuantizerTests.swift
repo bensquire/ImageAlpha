@@ -20,6 +20,19 @@ struct QuantizerTests {
         return try makeTestCGImage(width: width, height: height, rgba: rgba)
     }
 
+    /// A width×height gradient with far more unique colors than any palette
+    /// (widths up to 64 keep channel values in range).
+    private func makeGradientImage(width: Int, height: Int) throws -> CGImage {
+        var rgba = [UInt8](repeating: 0, count: width * height * 4)
+        for y in 0..<height {
+            for x in 0..<width {
+                let i = (y * width + x) * 4
+                rgba[i] = UInt8(x * 4); rgba[i + 1] = UInt8(y * 4); rgba[i + 2] = UInt8((x + y) * 2); rgba[i + 3] = 255
+            }
+        }
+        return try makeTestCGImage(width: width, height: height, rgba: rgba)
+    }
+
     private func decodeRGBA(_ pngData: Data) throws -> DecodedImage {
         try #require(DecodedImage(pngData: pngData))
     }
@@ -64,15 +77,7 @@ struct QuantizerTests {
 
     @Test func reducesManyColorsToRequestedMaximum() async throws {
         // Arrange: 64x64 gradient with far more than 16 unique colors
-        let width = 64, height = 64
-        var rgba = [UInt8](repeating: 0, count: width * height * 4)
-        for y in 0..<height {
-            for x in 0..<width {
-                let i = (y * width + x) * 4
-                rgba[i] = UInt8(x * 4); rgba[i + 1] = UInt8(y * 4); rgba[i + 2] = UInt8((x + y) * 2); rgba[i + 3] = 255
-            }
-        }
-        let image = try makeTestCGImage(width: width, height: height, rgba: rgba)
+        let image = try makeGradientImage(width: 64, height: 64)
         let quantizer = Quantizer()
         let options = QuantizationOptions(numberOfColors: 16)
 
@@ -164,6 +169,51 @@ struct QuantizerTests {
         // Assert
         #expect(decoded.width == 32)
         #expect(uniqueColors(in: decoded.rgba).count <= 2)
+    }
+
+    // MARK: - Quality target & quality metric
+
+    @Test func qualityTargetUsesFewerColorsThanMax() async throws {
+        // Arrange: a gradient with far more than 256 unique colors; a low
+        // quality target should let libimagequant settle on a small palette.
+        let image = try makeGradientImage(width: 64, height: 64)
+        let quantizer = Quantizer()
+        let options = QuantizationOptions(numberOfColors: 256, qualityTarget: 10)
+
+        // Act
+        let result = try await quantizer.quantize(cgImage: image, options: options)
+        let decoded = try decodeRGBA(result.pngData)
+
+        // Assert
+        #expect(result.paletteCount < 256)
+        #expect(uniqueColors(in: decoded.rgba).count <= result.paletteCount)
+        #expect(decoded.width == 64)
+    }
+
+    @Test func reportsPaletteCountMatchingSmallPalette() async throws {
+        // Arrange: 3 distinct colors, so the palette can't need more than 3
+        let image = try makeImage(width: 32, height: 32, colors: [[255, 0, 0], [0, 255, 0], [0, 0, 255]])
+        let quantizer = Quantizer()
+
+        // Act
+        let result = try await quantizer.quantize(cgImage: image, options: QuantizationOptions())
+
+        // Assert
+        #expect((1...3).contains(result.paletteCount))
+    }
+
+    @Test func reportsQualityMetricInRange() async throws {
+        // Arrange
+        let image = try makeImage(width: 32, height: 32, colors: [[255, 0, 0], [0, 255, 0], [0, 0, 255]])
+        let quantizer = Quantizer()
+
+        // Act
+        let result = try await quantizer.quantize(cgImage: image, options: QuantizationOptions())
+
+        // Assert: exact palette match should score at or near perfect
+        let quality = try #require(result.quality)
+        #expect((0...100).contains(quality))
+        #expect(quality >= 90)
     }
 
     @Test func quantizedPNGIsSmallerThanTruecolorSource() async throws {
