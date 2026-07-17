@@ -1,6 +1,15 @@
 import Foundation
 import Compression
 
+/// Palette + per-pixel indices: everything IndexedPNGEncoder needs to produce
+/// a PNG, independent of how the quantization was done.
+struct IndexedBitmap {
+    var width: Int
+    var height: Int
+    var palette: [IndexedPNGEncoder.PaletteEntry]
+    var pixels: [UInt8]
+}
+
 /// Encodes palette-quantized pixels as a color-type-3 (indexed) PNG, including
 /// PLTE/tRNS chunks and minimal 1/2/4/8 bit depth. ImageIO can only write
 /// truecolor PNGs, which would discard the size benefit of quantization.
@@ -11,6 +20,24 @@ enum IndexedPNGEncoder {
         var green: UInt8
         var blue: UInt8
         var alpha: UInt8
+    }
+
+    enum CompressionEffort {
+        /// Apple's Compression framework: fastest, fixed mid-level deflate.
+        /// Used for interactive previews.
+        case fast
+        /// System zlib at level 9: a few percent smaller, several times
+        /// slower. Used for the file that actually gets saved.
+        case maximum
+    }
+
+    /// Convenience for callers that carry the encoder's input as one value.
+    static func encode(_ bitmap: IndexedBitmap, effort: CompressionEffort = .fast) -> Data? {
+        encode(
+            width: bitmap.width, height: bitmap.height,
+            palette: bitmap.palette, pixels: bitmap.pixels,
+            effort: effort
+        )
     }
 
     /// Smallest PNG-legal bit depth (1, 2, 4 or 8) that can index the palette.
@@ -25,7 +52,10 @@ enum IndexedPNGEncoder {
 
     /// `pixels` are palette indices, one byte per pixel, row-major.
     /// Returns nil for structurally invalid input or if compression fails.
-    static func encode(width: Int, height: Int, palette: [PaletteEntry], pixels: [UInt8]) -> Data? {
+    static func encode(
+        width: Int, height: Int, palette: [PaletteEntry], pixels: [UInt8],
+        effort: CompressionEffort = .fast
+    ) -> Data? {
         guard width > 0, height > 0,
               (1...256).contains(palette.count),
               pixels.count == width * height,
@@ -35,7 +65,8 @@ enum IndexedPNGEncoder {
 
         let depth = bitDepth(forPaletteCount: palette.count)
         let scanlines = packScanlines(pixels: pixels, width: width, height: height, bitDepth: depth)
-        guard let idat = zlibCompress(scanlines) else { return nil }
+        let compressed = effort == .maximum ? zlibCompressMax(scanlines) : zlibCompress(scanlines)
+        guard let idat = compressed else { return nil }
 
         var ihdr = Data()
         ihdr.appendBigEndian(UInt32(width))
@@ -129,45 +160,37 @@ enum IndexedPNGEncoder {
         return out
     }
 
-    static func adler32(_ bytes: [UInt8]) -> UInt32 {
-        // Sums stay within UInt32 for up to 5552 bytes, so the expensive
-        // modulo only runs once per block instead of per byte.
-        let modAdler: UInt32 = 65521
-        let blockSize = 5552
-        var low: UInt32 = 1
-        var high: UInt32 = 0
-        bytes.withUnsafeBufferPointer { buf in
-            var i = 0
-            while i < buf.count {
-                let end = min(i + blockSize, buf.count)
-                while i < end {
-                    low &+= UInt32(buf[i])
-                    high &+= low
-                    i += 1
-                }
-                low %= modAdler
-                high %= modAdler
+    /// Complete zlib stream from system libz at maximum compression.
+    static func zlibCompressMax(_ source: [UInt8]) -> Data? {
+        guard !source.isEmpty else { return nil }
+        var destLen = compressBound(uLong(source.count))
+        var dest = Data(count: Int(destLen))
+        let status = dest.withUnsafeMutableBytes { destBuf in
+            source.withUnsafeBufferPointer { src in
+                compress2(
+                    destBuf.bindMemory(to: UInt8.self).baseAddress!, &destLen,
+                    src.baseAddress!, uLong(source.count), 9
+                )
             }
         }
-        return (high << 16) | low
+        guard status == Z_OK else { return nil }
+        dest.count = Int(destLen)
+        return dest
     }
 
-    private static let crcTable: [UInt32] = (0..<256).map { index in
-        var crc = UInt32(index)
-        for _ in 0..<8 {
-            crc = (crc & 1) == 1 ? (crc >> 1) ^ 0xEDB8_8320 : crc >> 1
+    // Checksums come from libz (linked for zlibCompressMax anyway); these
+    // wrappers only adapt Swift types to the C signatures.
+
+    static func adler32(_ bytes: [UInt8]) -> UInt32 {
+        bytes.withUnsafeBufferPointer { buf in
+            UInt32(ImageAlpha.adler32(1, buf.baseAddress, uInt(buf.count)))
         }
-        return crc
     }
 
     static func crc32(_ data: Data) -> UInt32 {
-        var crc: UInt32 = 0xFFFF_FFFF
         data.withUnsafeBytes { (buf: UnsafeRawBufferPointer) in
-            for byte in buf {
-                crc = crcTable[Int((crc ^ UInt32(byte)) & 0xFF)] ^ (crc >> 8)
-            }
+            UInt32(ImageAlpha.crc32(0, buf.bindMemory(to: UInt8.self).baseAddress, uInt(buf.count)))
         }
-        return crc ^ 0xFFFF_FFFF
     }
 
     private static func chunk(_ type: String, _ payload: Data) -> Data {

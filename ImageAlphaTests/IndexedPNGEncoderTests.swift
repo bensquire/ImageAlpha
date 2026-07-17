@@ -73,6 +73,35 @@ struct IndexedPNGEncoderTests {
         png.range(of: Data(type.utf8)) != nil
     }
 
+    // MARK: - Compression effort
+
+    @Test func maximumEffortDecodesIdenticallyAndIsNoLarger() throws {
+        // Arrange: varied indices so the deflate streams are non-trivial
+        let width = 64, height = 64
+        var palette: [Entry] = []
+        for i in 0..<64 {
+            palette.append(Entry(red: UInt8(i * 4), green: UInt8(255 - i * 2), blue: UInt8(i), alpha: 255))
+        }
+        var pixels = [UInt8](repeating: 0, count: width * height)
+        for i in 0..<(width * height) {
+            pixels[i] = UInt8((i * 7 + i / width) % 64)
+        }
+
+        // Act
+        let fast = try #require(IndexedPNGEncoder.encode(
+            width: width, height: height, palette: palette, pixels: pixels, effort: .fast
+        ))
+        let maximum = try #require(IndexedPNGEncoder.encode(
+            width: width, height: height, palette: palette, pixels: pixels, effort: .maximum
+        ))
+
+        // Assert: same pixels out of both, smaller-or-equal file from maximum
+        let fastDecoded = try decodeRGBA(fast)
+        let maxDecoded = try decodeRGBA(maximum)
+        #expect(fastDecoded.rgba == maxDecoded.rgba)
+        #expect(maximum.count <= fast.count)
+    }
+
     // MARK: - Bit depth selection
 
     @Test func bitDepthIs1ForTwoColorPalette() {

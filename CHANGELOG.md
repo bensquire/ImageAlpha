@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.0.12
+
+- Saved PNGs are now compressed with zlib at maximum effort (system libz,
+  level 9): typically 2–7% smaller on large images, and smaller than
+  pngquant's own output in our measurements
+- Interactive previews keep the fast encoder, then a background re-encode
+  upgrades the result moments after you stop adjusting — the status bar size
+  ticks down when it lands; the shown size is always an upper bound on what
+  gets saved
+- Saving always produces the maximum-effort encode, computed on demand — no
+  waiting on background timers
+- Replaced the hand-rolled Adler-32/CRC-32 implementations with libz's
+
 ## v0.0.11
 
 - Added Quality mode: pick a 0–100% quality target and the fewest colors that

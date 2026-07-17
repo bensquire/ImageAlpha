@@ -46,6 +46,9 @@ class DocumentModel: ObservableObject {
 
     private let quantizer = Quantizer()
     private var quantizationTask: Task<Void, Never>?
+    /// Debounced background maximum-effort re-encode of the current result.
+    /// Purely a preview-size nicety: saving calls finalPNGData() directly.
+    private var refinementTask: Task<Void, Never>?
     private var cancellables = Set<AnyCancellable>()
     private var sourceFileData: Data?
     /// Options that produced the current quantized output, so repeat requests
@@ -144,6 +147,7 @@ class DocumentModel: ObservableObject {
 
         guard let options = effectiveOptions else {
             // 24-bit passthrough: show the original file as-is
+            refinementTask?.cancel()
             quantizedPNGData = sourceFileData
             quantizedImage = sourceImage
             resultStats = nil
@@ -153,7 +157,8 @@ class DocumentModel: ObservableObject {
             return
         }
 
-        // The current output already came from identical options — nothing to do.
+        // The current output already came from identical options — nothing to
+        // do, and any in-flight refinement of it stays valid.
         if options == completedOptions && quantizedPNGData != nil {
             isBusy = false
             return
@@ -166,6 +171,7 @@ class DocumentModel: ObservableObject {
             return
         }
 
+        refinementTask?.cancel()
         isBusy = true
         quantizationTask = Task {
             do {
@@ -192,7 +198,8 @@ class DocumentModel: ObservableObject {
         self.speed = Preferences.speed
     }
 
-    /// Publishes a quantization result and records it for reuse.
+    /// Publishes a quantization result and records it for reuse. Results that
+    /// still carry their bitmap get a debounced maximum-effort re-encode.
     private func apply(_ result: QuantizationResult, for options: QuantizationOptions) {
         quantizedImage = result.image
         quantizedPNGData = result.pngData
@@ -204,6 +211,49 @@ class DocumentModel: ObservableObject {
             recentResults.removeLast()
         }
         updateStatus()
+        if result.bitmap != nil {
+            refinementTask?.cancel()
+            refinementTask = Task { [weak self] in
+                // Let slider scrubbing settle before spending seconds on deflate.
+                try? await Task.sleep(for: .milliseconds(400))
+                guard !Task.isCancelled else { return }
+                await self?.refineCurrentResult()
+            }
+        }
+    }
+
+    /// Re-encodes the current result with maximum-effort deflate off the main
+    /// actor and publishes the smaller file; no-op once refined. The fast
+    /// encode is an upper bound, so the shown size only ever improves.
+    private func refineCurrentResult() async {
+        guard let options = completedOptions,
+              let bitmap = recentResults.first(where: { $0.options == options })?.result.bitmap
+        else { return }
+
+        let data = await Task.detached(priority: .utility) {
+            IndexedPNGEncoder.encode(bitmap, effort: .maximum)
+        }.value
+
+        // Re-check: parameters may have moved on while encoding.
+        guard completedOptions == options,
+              let index = recentResults.firstIndex(where: { $0.options == options })
+        else { return }
+        recentResults[index].result.bitmap = nil
+        // Level 9 should never lose, but keep the smaller file if it does.
+        if let data, data.count < recentResults[index].result.pngData.count {
+            recentResults[index].result.pngData = data
+            quantizedPNGData = data
+            updateStatus()
+        }
+    }
+
+    /// The best encode of the current result, produced on demand: skips the
+    /// refinement debounce and re-encodes immediately if needed. Saves call
+    /// this so the persisted file never depends on background-task timing.
+    func finalPNGData() async -> Data? {
+        refinementTask?.cancel()
+        await refineCurrentResult()
+        return quantizedPNGData
     }
 
     private func updateStatus() {

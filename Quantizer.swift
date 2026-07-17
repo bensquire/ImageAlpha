@@ -14,6 +14,9 @@ struct QuantizationOptions: Equatable {
 struct QuantizationResult {
     var image: NSImage
     var pngData: Data
+    /// Input for re-encoding pngData without quantizing again; cleared (to
+    /// free the pixel buffer) once the maximum-effort encode has run.
+    var bitmap: IndexedBitmap?
     var paletteCount: Int
     /// libimagequant's 0–100 estimate of how well the palette matches the
     /// source; nil when the library doesn't compute it (high speed settings).
@@ -131,12 +134,11 @@ actor Quantizer {
             }
         }
         let indices = [UInt8](UnsafeBufferPointer(start: remapped, count: pixelCount))
+        let bitmap = IndexedBitmap(width: width, height: height, palette: paletteEntries, pixels: indices)
 
         // Encode a real indexed PNG (PLTE + tRNS); ImageIO can only write
         // truecolor, which would forfeit most of the size reduction.
-        guard let pngData = IndexedPNGEncoder.encode(
-            width: width, height: height, palette: paletteEntries, pixels: indices
-        ) else {
+        guard let pngData = IndexedPNGEncoder.encode(bitmap) else {
             throw QuantizationError.failedToCreatePNG
         }
 
@@ -150,6 +152,7 @@ actor Quantizer {
         return QuantizationResult(
             image: nsImage,
             pngData: pngData,
+            bitmap: bitmap,
             paletteCount: colorCount,
             quality: measuredQuality >= 0 ? Int(measuredQuality) : nil
         )

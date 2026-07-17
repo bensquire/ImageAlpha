@@ -115,12 +115,17 @@ class ImageAlphaDocument: NSDocument {
             optimizeWithImageOptimCheckbox = nil
         }
 
-        super.save(to: url, ofType: typeName, for: saveOperation) { error in
-            completionHandler(error)
-            if error == nil {
-                self.model.noteSaved(to: url)
-                if shouldOptimize {
-                    self.openInImageOptim(url: url)
+        Task { @MainActor in
+            // Saved files always get the maximum-effort encode, computed on
+            // demand; previews may briefly show the fast encode's larger size.
+            _ = await model.finalPNGData()
+            super.save(to: url, ofType: typeName, for: saveOperation) { error in
+                completionHandler(error)
+                if error == nil {
+                    self.model.noteSaved(to: url)
+                    if shouldOptimize {
+                        self.openInImageOptim(url: url)
+                    }
                 }
             }
         }
