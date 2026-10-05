@@ -1,13 +1,12 @@
 import AppKit
 import QuartzCore
-import UniformTypeIdentifiers
 
 protocol ImageCanvasDelegate: AnyObject {
     func canvasDidReceiveDrop(urls: [URL])
     func canvasShowOriginalChanged(_ showOriginal: Bool)
 }
 
-class ImageCanvasNSView: NSView, NSDraggingSource, NSFilePromiseProviderDelegate {
+class ImageCanvasNSView: NSView {
 
     weak var delegate: ImageCanvasDelegate?
     var pngDataProvider: (() -> Data?)?
@@ -48,7 +47,8 @@ class ImageCanvasNSView: NSView, NSDraggingSource, NSFilePromiseProviderDelegate
 
     private func applyBackground() {
         guard let style = checkerboardStyle else { return }
-        backgroundRenderer = makeBackgroundRenderer(for: style)
+        let isDark = CheckerboardBackground.isDark(effectiveAppearance)
+        backgroundRenderer = makeBackgroundRenderer(for: style, isDark: isDark)
     }
 
     var displayImage: NSImage? {
@@ -141,6 +141,9 @@ class ImageCanvasNSView: NSView, NSDraggingSource, NSFilePromiseProviderDelegate
         hostLayer.addSublayer(imageLayer)
 
         addShadows()
+        // NSView takes only direct (Touch Bar) touches unless asked; the
+        // three-finger "show original" needs the trackpad's. NSView.h, allowedTouchTypes
+        allowedTouchTypes.insert(.indirect)
         registerForDraggedTypes([.fileURL])
         setUpTrackingArea()
     }
@@ -186,13 +189,14 @@ class ImageCanvasNSView: NSView, NSDraggingSource, NSFilePromiseProviderDelegate
 
     // MARK: - Frame
 
-    override var frame: NSRect {
-        didSet {
-            if zoomingToFill != 0 {
-                zoomToFill(scale: zoomingToFill)
-            } else {
-                repositionImageLayer()
-            }
+    /// setFrameSize(_:), not the frame setter: size changes can arrive
+    /// through either. /documentation/appkit/nsview/framedidchangenotification
+    override func setFrameSize(_ newSize: NSSize) {
+        super.setFrameSize(newSize)
+        if zoomingToFill != 0 {
+            zoomToFill(scale: zoomingToFill)
+        } else {
+            repositionImageLayer()
         }
     }
 
@@ -365,52 +369,6 @@ class ImageCanvasNSView: NSView, NSDraggingSource, NSFilePromiseProviderDelegate
         CATransaction.commit()
     }
 
-    // MARK: - NSDraggingSource
-
-    func draggingSession(
-        _ session: NSDraggingSession,
-        sourceOperationMaskFor context: NSDraggingContext
-    ) -> NSDragOperation {
-        context == .outsideApplication ? .copy : []
-    }
-
-    // MARK: - NSFilePromiseProviderDelegate
-
-    func filePromiseProvider(
-        _ filePromiseProvider: NSFilePromiseProvider,
-        fileNameForType fileType: String
-    ) -> String {
-        "ImageAlpha.png"
-    }
-
-    func filePromiseProvider(
-        _ filePromiseProvider: NSFilePromiseProvider,
-        writePromiseTo url: URL,
-        completionHandler handler: @escaping (Error?) -> Void
-    ) {
-        do {
-            if let data = pngDataProvider?() {
-                try data.write(to: url)
-            }
-            handler(nil)
-        } catch {
-            handler(error)
-        }
-    }
-
-    func beginImageDrag(from event: NSEvent) {
-        guard let data = pngDataProvider?() else { return }
-        isDraggingOut = true
-
-        let provider = NSFilePromiseProvider(fileType: UTType.png.identifier, delegate: self)
-        provider.userInfo = data
-
-        let draggingItem = NSDraggingItem(pasteboardWriter: provider)
-        draggingItem.setDraggingFrame(imageLayer.frame, contents: displayImage ?? originalImage)
-
-        beginDraggingSession(with: [draggingItem], event: event, source: self)
-    }
-
     func pointIsInImage(_ point: NSPoint) -> Bool {
         guard let image = displayImage ?? originalImage else { return false }
         let imageSize = image.size
@@ -560,8 +518,9 @@ extension ImageCanvasNSView {
     override func touchesMoved(with event: NSEvent) { updateTouches(event) }
     override func touchesEnded(with event: NSEvent) { updateTouches(event) }
 
+    /// .touching is began, moved or stationary. NSTouch.h, NSTouchPhaseTouching
     private func updateTouches(_ event: NSEvent) {
-        let touches = event.touches(matching: .stationary, in: self)
+        let touches = event.touches(matching: .touching, in: self)
         let show = touches.count >= 3
         if showOriginal != show {
             showOriginal = show

@@ -101,7 +101,7 @@ struct BackgroundStyleTests {
 
     @Test func checkerboardCannotMove() {
         // Arrange
-        let bg = CheckerboardBackground()
+        let bg = CheckerboardBackground(isDark: false)
 
         // Act
         let canMove = bg.canMove

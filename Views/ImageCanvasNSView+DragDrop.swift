@@ -5,11 +5,12 @@ import UniformTypeIdentifiers
 
 extension ImageCanvasNSView {
 
-    /// Only accept file URLs whose content is an image, so the drag cursor
-    /// doesn't promise a drop that would silently fail.
+    /// Only accept files the app opens as documents (its Info.plist types),
+    /// so the drag cursor doesn't promise a drop that would fail, and an image
+    /// it can't save back to never becomes a document.
     private static let dropReadingOptions: [NSPasteboard.ReadingOptionKey: Any] = [
         .urlReadingFileURLsOnly: true,
-        .urlReadingContentsConformToTypes: [UTType.image.identifier],
+        .urlReadingContentsConformToTypes: ImageAlphaDocument.readableTypes,
     ]
 
     override func resetCursorRects() {
@@ -28,7 +29,7 @@ extension ImageCanvasNSView {
     }
 
     override func draggingEntered(_ sender: any NSDraggingInfo) -> NSDragOperation {
-        if hasImageFileURLs(sender.draggingPasteboard) {
+        if hasDocumentFileURLs(sender.draggingPasteboard) {
             imageFade = 0.15
             return [.copy]
         }
@@ -41,7 +42,7 @@ extension ImageCanvasNSView {
 
     override func prepareForDragOperation(_ sender: any NSDraggingInfo) -> Bool {
         imageFade = 1.0
-        return hasImageFileURLs(sender.draggingPasteboard)
+        return hasDocumentFileURLs(sender.draggingPasteboard)
     }
 
     override func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {
@@ -55,7 +56,72 @@ extension ImageCanvasNSView {
         return true
     }
 
-    func hasImageFileURLs(_ pasteboard: NSPasteboard) -> Bool {
+    func hasDocumentFileURLs(_ pasteboard: NSPasteboard) -> Bool {
         pasteboard.canReadObject(forClasses: [NSURL.self], options: Self.dropReadingOptions)
+    }
+}
+
+// MARK: - Drag Out
+
+extension ImageCanvasNSView: NSDraggingSource, NSFilePromiseProviderDelegate {
+
+    /// "To avoid blocking your main thread, provide an operation queue other
+    /// than the main operation queue." /documentation/appkit/nsfilepromiseproviderdelegate/operationqueue(for:)
+    private static let filePromiseQueue: OperationQueue = {
+        let queue = OperationQueue()
+        queue.qualityOfService = .userInitiated
+        return queue
+    }()
+
+    func draggingSession(
+        _ session: NSDraggingSession,
+        sourceOperationMaskFor context: NSDraggingContext
+    ) -> NSDragOperation {
+        context == .outsideApplication ? .copy : []
+    }
+
+    // MARK: - NSFilePromiseProviderDelegate
+
+    func filePromiseProvider(
+        _ filePromiseProvider: NSFilePromiseProvider,
+        fileNameForType fileType: String
+    ) -> String {
+        "ImageAlpha.png"
+    }
+
+    /// Writes the PNG captured when the drag began, since the result may have
+    /// moved on by the time the drop lands, and reports a failure rather than
+    /// success with no file.
+    nonisolated func filePromiseProvider(
+        _ filePromiseProvider: NSFilePromiseProvider,
+        writePromiseTo url: URL,
+        completionHandler handler: @escaping (Error?) -> Void
+    ) {
+        do {
+            guard let data = filePromiseProvider.userInfo as? Data else {
+                throw CocoaError(.fileWriteUnknown, userInfo: [NSURLErrorKey: url])
+            }
+            try data.write(to: url)
+            handler(nil)
+        } catch {
+            handler(error)
+        }
+    }
+
+    func operationQueue(for filePromiseProvider: NSFilePromiseProvider) -> OperationQueue {
+        Self.filePromiseQueue
+    }
+
+    func beginImageDrag(from event: NSEvent) {
+        guard let data = pngDataProvider?() else { return }
+        isDraggingOut = true
+
+        let provider = NSFilePromiseProvider(fileType: UTType.png.identifier, delegate: self)
+        provider.userInfo = data
+
+        let draggingItem = NSDraggingItem(pasteboardWriter: provider)
+        draggingItem.setDraggingFrame(imageLayer.frame, contents: displayImage ?? originalImage)
+
+        beginDraggingSession(with: [draggingItem], event: event, source: self)
     }
 }

@@ -45,6 +45,8 @@ enum QuantizationError: Error, LocalizedError {
 
 actor Quantizer {
 
+    private static let srgb = CGColorSpace(name: CGColorSpace.sRGB)!
+
     func quantize(cgImage: CGImage, options: QuantizationOptions) throws -> QuantizationResult {
         // Slider scrubbing queues multiple requests on this actor; skip any
         // whose task was already cancelled by a newer request.
@@ -54,33 +56,11 @@ actor Quantizer {
         let height = cgImage.height
         let pixelCount = width * height
 
-        // Draw into RGBA context to get raw pixel bytes
-        guard let context = CGContext(
-            data: nil,
-            width: width,
-            height: height,
-            bitsPerComponent: 8,
-            bytesPerRow: width * 4,
-            space: CGColorSpaceCreateDeviceRGB(),
-            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue
-        ) else {
-            throw QuantizationError.failedToGetPixelData
-        }
-
-        context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
-
-        guard let pixelData = context.data else {
-            throw QuantizationError.failedToGetPixelData
-        }
-
-        // Undo premultiplication for libimagequant (it expects straight alpha)
-        var buffer = vImage_Buffer(
-            data: pixelData,
-            height: vImagePixelCount(height),
-            width: vImagePixelCount(width),
-            rowBytes: width * 4
-        )
-        guard vImageUnpremultiplyData_RGBA8888(&buffer, &buffer, vImage_Flags(kvImageNoFlags)) == kvImageNoError else {
+        // Owned here, not by a context, because libimagequant keeps pointing
+        // at these bytes until the remap below is done.
+        let pixelData = UnsafeMutableRawPointer.allocate(byteCount: pixelCount * 4, alignment: 16)
+        defer { pixelData.deallocate() }
+        guard Self.readStraightRGBA(cgImage, into: pixelData) else {
             throw QuantizationError.failedToGetPixelData
         }
 
@@ -158,6 +138,33 @@ actor Quantizer {
         )
     }
 
+    /// Writes the image into `destination` as straight-alpha sRGB RGBA, rows
+    /// packed at width × 4 bytes, the layout libimagequant reads. vImage
+    /// converts directly; a CGBitmapContext premultiplies, and undoing that
+    /// loses the colour of nearly transparent pixels.
+    /// /documentation/accelerate/vimagebuffer_initwithcgimage(_:_:_:_:_:)
+    /// sRGB, not device RGB, which is "not recommended when color preservation
+    /// is important". /documentation/coregraphics/cgcolorspacecreatedevicergb()
+    private static func readStraightRGBA(_ cgImage: CGImage, into destination: UnsafeMutableRawPointer) -> Bool {
+        guard var format = vImage_CGImageFormat(
+                  bitsPerComponent: 8,
+                  bitsPerPixel: 32,
+                  colorSpace: srgb,
+                  bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.last.rawValue | CGBitmapInfo.byteOrder32Big.rawValue)
+              ) else {
+            return false
+        }
+        var buffer = vImage_Buffer(
+            data: destination,
+            height: vImagePixelCount(cgImage.height),
+            width: vImagePixelCount(cgImage.width),
+            rowBytes: cgImage.width * 4
+        )
+        // kvImageNoAllocate: fill the caller's packed buffer rather than one
+        // vImage sizes, whose rows may be padded. /documentation/accelerate/kvimagenoallocate
+        return vImageBuffer_InitWithCGImage(&buffer, &format, nil, cgImage, vImage_Flags(kvImageNoAllocate)) == kvImageNoError
+    }
+
     private static func configure(_ attr: OpaquePointer, with options: QuantizationOptions) {
         liq_set_max_colors(attr, Int32(min(options.numberOfColors, 256)))
         liq_set_speed(attr, Int32(options.speed))
@@ -185,6 +192,7 @@ actor Quantizer {
             outputPixels[offset + 3] = color.alpha
         }
 
+        // sRGB, like the palette it shows, so the preview matches the saved file.
         guard let dataProvider = CGDataProvider(data: Data(outputPixels) as CFData),
               let outputCGImage = CGImage(
                   width: width,
@@ -192,7 +200,7 @@ actor Quantizer {
                   bitsPerComponent: 8,
                   bitsPerPixel: 32,
                   bytesPerRow: width * 4,
-                  space: CGColorSpaceCreateDeviceRGB(),
+                  space: srgb,
                   bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.last.rawValue),
                   provider: dataProvider,
                   decode: nil,

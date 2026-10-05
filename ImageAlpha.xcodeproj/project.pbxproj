@@ -35,6 +35,8 @@
 		BB30000100000005 /* QuantizerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB30001000000005 /* QuantizerTests.swift */; };
 		BB30000100000006 /* PreferencesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB30001000000006 /* PreferencesTests.swift */; };
 		BB30000100000007 /* ZoomDisplayTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB30001000000007 /* ZoomDisplayTests.swift */; };
+		BB30000100000008 /* ImageCanvasNSViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB30001000000008 /* ImageCanvasNSViewTests.swift */; };
+		BB30000100000009 /* ImageAlphaDocumentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB30001000000009 /* ImageAlphaDocumentTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -83,6 +85,8 @@
 		BB30001000000005 /* QuantizerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuantizerTests.swift; sourceTree = "<group>"; };
 		BB30001000000006 /* PreferencesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesTests.swift; sourceTree = "<group>"; };
 		BB30001000000007 /* ZoomDisplayTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZoomDisplayTests.swift; sourceTree = "<group>"; };
+		BB30001000000008 /* ImageCanvasNSViewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageCanvasNSViewTests.swift; sourceTree = "<group>"; };
+		BB30001000000009 /* ImageAlphaDocumentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageAlphaDocumentTests.swift; sourceTree = "<group>"; };
 		BB30001000000010 /* ImageAlphaTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ImageAlphaTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -195,6 +199,8 @@
 				BB30001000000005 /* QuantizerTests.swift */,
 				BB30001000000006 /* PreferencesTests.swift */,
 				BB30001000000007 /* ZoomDisplayTests.swift */,
+				BB30001000000008 /* ImageCanvasNSViewTests.swift */,
+				BB30001000000009 /* ImageAlphaDocumentTests.swift */,
 			);
 			name = ImageAlphaTests;
 			path = ImageAlphaTests;
@@ -321,6 +327,8 @@
 				BB30000100000005 /* QuantizerTests.swift in Sources */,
 				BB30000100000006 /* PreferencesTests.swift in Sources */,
 				BB30000100000007 /* ZoomDisplayTests.swift in Sources */,
+				BB30000100000008 /* ImageCanvasNSViewTests.swift in Sources */,
+				BB30000100000009 /* ImageAlphaDocumentTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

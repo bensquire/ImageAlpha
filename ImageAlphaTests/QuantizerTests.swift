@@ -1,5 +1,5 @@
 import Testing
-import Foundation
+import AppKit
 import CoreGraphics
 import ImageIO
 @testable import ImageAlpha
@@ -152,6 +152,56 @@ struct QuantizerTests {
         #expect(abs(Int(decoded.rgba[0]) - 100) <= 3)
         #expect(abs(Int(decoded.rgba[1]) - 40) <= 3)
         #expect(abs(Int(decoded.rgba[2]) - 20) <= 3)
+    }
+
+    @Test func keepsColorOfNearlyTransparentPixels() async throws {
+        // Arrange: premultiplying on the way in turned (200, 100, 50) at
+        // alpha 8 into (191, 96, 64); the palette must hold the original.
+        let image = try makeImage(width: 16, height: 16, colors: [[200, 100, 50, 8], [0, 0, 255, 255]])
+        let quantizer = Quantizer()
+
+        // Act
+        let result = try await quantizer.quantize(cgImage: image, options: QuantizationOptions())
+
+        // Assert: read the palette itself, since decoding premultiplies again
+        let palette = try #require(result.bitmap?.palette)
+        let faint = try #require(palette.first { $0.alpha == 8 }, "no alpha-8 entry in \(palette)")
+        #expect(faint == IndexedPNGEncoder.PaletteEntry(red: 200, green: 100, blue: 50, alpha: 8))
+    }
+
+    // MARK: - Color space
+
+    @Test func convertsTaggedSourceToSRGB() async throws {
+        // Arrange: sRGB (200, 100, 50) expressed in Display P3, so only a
+        // conversion back to sRGB recovers it.
+        let p3 = try #require(CGColorSpace(name: CGColorSpace.displayP3))
+        let srgbColor = CGColor(srgbRed: 200 / 255, green: 100 / 255, blue: 50 / 255, alpha: 1)
+        let p3Color = try #require(srgbColor.converted(to: p3, intent: .defaultIntent, options: nil))
+        let p3Bytes = try #require(p3Color.components).prefix(3).map { UInt8(($0 * 255).rounded()) }
+        let rgba = [UInt8]((0..<64).flatMap { _ in p3Bytes + [255] })
+        let image = try makeTestCGImage(width: 8, height: 8, rgba: rgba, space: p3)
+        let quantizer = Quantizer()
+
+        // Act
+        let result = try await quantizer.quantize(cgImage: image, options: QuantizationOptions())
+
+        // Assert
+        let entry = try #require(result.bitmap?.palette.first)
+        #expect(abs(Int(entry.red) - 200) <= 2 && abs(Int(entry.green) - 100) <= 2 && abs(Int(entry.blue) - 50) <= 2,
+                "expected ≈(200, 100, 50), got \(entry)")
+    }
+
+    @Test func displayImageIsTaggedSRGB() async throws {
+        // Arrange
+        let image = try makeImage(width: 8, height: 8, colors: [[255, 0, 0]])
+        let quantizer = Quantizer()
+
+        // Act
+        let result = try await quantizer.quantize(cgImage: image, options: QuantizationOptions())
+
+        // Assert
+        let displayed = try #require(result.image.cgImage(forProposedRect: nil, context: nil, hints: nil))
+        #expect(displayed.colorSpace?.name == CGColorSpace.sRGB)
     }
 
     // MARK: - Options

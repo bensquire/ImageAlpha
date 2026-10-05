@@ -82,44 +82,37 @@ class DocumentModel: ObservableObject {
             .store(in: &cancellables)
     }
 
-    @discardableResult
-    func loadImage(from url: URL) -> Bool {
-        guard let image = NSImage(contentsOf: url) else {
-            Self.logger.error("loadImage: NSImage failed for \(url.path, privacy: .public)")
-            return false
+    /// Throws, leaving the current image in place, when the file can't be
+    /// read or isn't an image.
+    func loadImage(from url: URL) throws {
+        let data = try Data(contentsOf: url)
+        // A nil rect means the image's own size (NSImage.h).
+        guard let image = NSImage(data: data),
+              let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+            throw CocoaError(.fileReadCorruptFile, userInfo: [NSURLErrorKey: url])
         }
+
         loadGeneration += 1
         sourceURL = url
         sourceImage = image
-
-        sourceFileData = try? Data(contentsOf: url)
-
-        // Get CGImage from NSImage
-        var rect = NSRect(origin: .zero, size: image.size)
-        sourceCGImage = image.cgImage(forProposedRect: &rect, context: nil, hints: nil)
-        guard sourceCGImage != nil else {
-            Self.logger.error("loadImage: cgImage failed for \(url.path, privacy: .public)")
-            return false
-        }
+        sourceFileData = data
+        sourceCGImage = cgImage
 
         sourceColorCount = nil
         resultStats = nil
         completedOptions = nil
         recentResults.removeAll()
-        if let cg = sourceCGImage {
-            let generation = loadGeneration
-            Task.detached { [weak self] in
-                let count = Self.countUniqueColors(in: cg)
-                await MainActor.run { [weak self] in
-                    guard let self, self.loadGeneration == generation else { return }
-                    self.sourceColorCount = count
-                    self.updateStatus()
-                }
+        let generation = loadGeneration
+        Task.detached { [weak self] in
+            let count = Self.countUniqueColors(in: cgImage)
+            await MainActor.run { [weak self] in
+                guard let self, self.loadGeneration == generation else { return }
+                self.sourceColorCount = count
+                self.updateStatus()
             }
         }
 
         requestQuantization()
-        return true
     }
 
     /// Refresh source stats after the quantized output overwrote the original file.

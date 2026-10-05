@@ -4,32 +4,27 @@ import SwiftUI
 class ImageAlphaDocument: NSDocument {
 
     let model = DocumentModel()
-    private var pendingURL: URL?
     private var optimizeWithImageOptimCheckbox: NSButton?
 
     override class var autosavesInPlace: Bool { false }
 
+    /// Decodes here, so a file that isn't an image fails the open with an
+    /// error NSDocument shows, instead of leaving an empty window. Reads run on
+    /// the main thread while canConcurrentlyReadDocuments(ofType:) keeps its
+    /// default of false. /documentation/appkit/nsdocument/canconcurrentlyreaddocuments(oftype:)
     override func read(from url: URL, ofType typeName: String) throws {
-        pendingURL = url
+        try MainActor.assumeIsolated {
+            try model.loadImage(from: url)
+        }
     }
 
     override func makeWindowControllers() {
-        if let url = pendingURL {
-            model.loadImage(from: url)
-            pendingURL = nil
-        }
-
         model.didChangeParameters = { [weak self] in
             self?.updateChangeCount(.changeDone)
         }
 
         let contentView = DocumentContentView(model: model) { [weak self] urls in
-            guard let self = self, let url = urls.first else { return }
-            self.loadFromURL(url)
-            // Additional dropped files each get their own document
-            for extraURL in urls.dropFirst() {
-                NSDocumentController.shared.openDocument(withContentsOf: extraURL, display: true) { _, _, _ in }
-            }
+            self?.openDropped(urls)
         }
 
         let window = NSWindow(
@@ -94,7 +89,9 @@ class ImageAlphaDocument: NSDocument {
         alert.beginSheetModal(for: window) { response in
             switch response {
             case .alertFirstButtonReturn:
-                self.performSave()
+                // NSDocument's own Save first checks whether another app has
+                // changed the file. /documentation/appkit/nsdocument/save(withdelegate:didsave:contextinfo:)
+                super.save(sender)
             case .alertSecondButtonReturn:
                 self.saveAs(sender)
             default:
@@ -131,21 +128,22 @@ class ImageAlphaDocument: NSDocument {
         }
     }
 
-    private func performSave() {
-        guard let url = fileURL, let typeName = fileType else { return }
-        save(to: url, ofType: typeName, for: .saveOperation) { error in
-            if let error = error {
-                NSApp.presentError(error)
+    /// Dropped files open as documents of their own, as from the Finder, so
+    /// each gets its real type and file coordination; fileURL is "only for
+    /// recording the document's location during its initial opening or saving".
+    /// /documentation/appkit/nsdocument/fileurl
+    /// The empty untitled window that received the drop gives way to the first.
+    private func openDropped(_ urls: [URL]) {
+        var replacesSelf = fileURL == nil
+        for url in urls {
+            NSDocumentController.shared.openDocument(withContentsOf: url, display: true) { [weak self] _, _, error in
+                if let error {
+                    NSDocumentController.shared.presentError(error)
+                } else if replacesSelf {
+                    replacesSelf = false
+                    self?.close()
+                }
             }
-        }
-    }
-
-    private func loadFromURL(_ url: URL) {
-        guard model.loadImage(from: url) else { return }
-        fileURL = url
-        fileType = "public.png"
-        if let wc = windowControllers.first {
-            wc.window?.title = url.lastPathComponent
         }
     }
 

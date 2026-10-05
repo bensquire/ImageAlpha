@@ -1,7 +1,25 @@
 import Testing
+import Foundation
 @testable import ImageAlpha
 
 struct DocumentModelTests {
+
+    // MARK: - Loading
+
+    @MainActor @Test func failedLoadKeepsThePreviousImage() throws {
+        // Arrange
+        let good = try writeTestPNG(named: "good.png")
+        let broken = try writeTemporaryFile(named: "broken.png", contents: Data("not a png".utf8))
+        let model = DocumentModel()
+        try model.loadImage(from: good)
+
+        // Act
+        #expect(throws: (any Error).self) { try model.loadImage(from: broken) }
+
+        // Assert
+        #expect(model.sourceURL == good)
+        #expect(model.sourceImage != nil)
+    }
 
     // MARK: - bitDepthSliderValue getter
 

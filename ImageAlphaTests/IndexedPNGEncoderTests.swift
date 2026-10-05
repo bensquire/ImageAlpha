@@ -2,6 +2,7 @@ import Testing
 import Foundation
 import CoreGraphics
 import ImageIO
+import UniformTypeIdentifiers
 @testable import ImageAlpha
 
 /// Decoded PNG as straight-alpha RGBA bytes, for round-trip assertions.
@@ -37,22 +38,49 @@ struct DecodedImage {
 }
 
 /// Builds a straight-alpha RGBA CGImage from raw bytes.
-func makeTestCGImage(width: Int, height: Int, rgba: [UInt8]) throws -> CGImage {
+func makeTestCGImage(
+    width: Int, height: Int, rgba: [UInt8], space: CGColorSpace = CGColorSpaceCreateDeviceRGB()
+) throws -> CGImage {
     let provider = try #require(CGDataProvider(data: Data(rgba) as CFData))
     return try #require(CGImage(
         width: width, height: height, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: width * 4,
-        space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.last.rawValue),
+        space: space, bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.last.rawValue),
         provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent
     ))
 }
 
+/// Encodes with ImageIO in the given format.
+func encodeWithImageIO(_ image: CGImage, as type: UTType) throws -> Data {
+    let data = NSMutableData()
+    let dest = try #require(CGImageDestinationCreateWithData(data, type.identifier as CFString, 1, nil))
+    CGImageDestinationAddImage(dest, image, nil)
+    try #require(CGImageDestinationFinalize(dest))
+    return data as Data
+}
+
 /// Encodes via ImageIO (truecolor PNG) — the size baseline indexed output must beat.
 func encodeTruecolorPNG(_ image: CGImage) throws -> Data {
-    let data = NSMutableData()
-    let dest = try #require(CGImageDestinationCreateWithData(data, "public.png" as CFString, 1, nil))
-    CGImageDestinationAddImage(dest, image, nil)
-    CGImageDestinationFinalize(dest)
-    return data as Data
+    try encodeWithImageIO(image, as: .png)
+}
+
+/// A fresh, empty temporary directory.
+func makeTemporaryDirectory() throws -> URL {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    return directory
+}
+
+/// Writes `contents` to a fresh file in its own temporary directory.
+func writeTemporaryFile(named name: String, contents: Data) throws -> URL {
+    let url = try makeTemporaryDirectory().appendingPathComponent(name)
+    try contents.write(to: url)
+    return url
+}
+
+/// A small white image, written as a PNG file.
+func writeTestPNG(named name: String) throws -> URL {
+    let pixels = [UInt8](repeating: 255, count: 4 * 4 * 4)
+    return try writeTemporaryFile(named: name, contents: encodeTruecolorPNG(makeTestCGImage(width: 4, height: 4, rgba: pixels)))
 }
 
 struct IndexedPNGEncoderTests {

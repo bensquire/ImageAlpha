@@ -137,13 +137,24 @@ class CheckerboardBackground: BackgroundRendering {
     static func checkerLightWhite(isDark: Bool) -> CGFloat { isDark ? 0.30 : 1.0 }
     static func checkerDarkWhite(isDark: Bool) -> CGFloat { isDark ? 0.24 : 0.86 }
 
+    static func isDark(_ appearance: NSAppearance) -> Bool {
+        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+    }
+
     static let checkerLight = NSColor(name: nil) { appearance in
-        let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-        return NSColor(white: checkerLightWhite(isDark: isDark), alpha: 1)
+        NSColor(white: checkerLightWhite(isDark: isDark(appearance)), alpha: 1)
     }
     static let checkerDark = NSColor(name: nil) { appearance in
-        let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-        return NSColor(white: checkerDarkWhite(isDark: isDark), alpha: 1)
+        NSColor(white: checkerDarkWhite(isDark: isDark(appearance)), alpha: 1)
+    }
+
+    /// Fixed at creation rather than resolved from dynamic colours while
+    /// drawing, when the thread's appearance needn't be the view's.
+    /// /documentation/appkit/nsappearance/current
+    private let isDark: Bool
+
+    init(isDark: Bool) {
+        self.isDark = isDark
     }
 
     var canMove: Bool { false }
@@ -162,10 +173,12 @@ class CheckerboardBackground: BackgroundRendering {
 
     private func createCheckerboardImage() -> NSImage? {
         let size = 16
+        let light = NSColor(white: Self.checkerLightWhite(isDark: isDark), alpha: 1)
+        let dark = NSColor(white: Self.checkerDarkWhite(isDark: isDark), alpha: 1)
         return NSImage(size: NSSize(width: size * 2, height: size * 2), flipped: false) { rect in
-            CheckerboardBackground.checkerDark.setFill()
+            dark.setFill()
             rect.fill()
-            CheckerboardBackground.checkerLight.setFill()
+            light.setFill()
             NSRect(x: 0, y: 0, width: size, height: size).fill()
             NSRect(x: size, y: size, width: size, height: size).fill()
             return true
@@ -173,10 +186,10 @@ class CheckerboardBackground: BackgroundRendering {
     }
 }
 
-func makeBackgroundRenderer(for style: BackgroundStyle) -> BackgroundRendering {
+func makeBackgroundRenderer(for style: BackgroundStyle, isDark: Bool) -> BackgroundRendering {
     switch style {
     case .checkerboard:
-        return CheckerboardBackground()
+        return CheckerboardBackground(isDark: isDark)
     case .color(let r, let g, let b):
         return ColorBackground(r: r, g: g, b: b)
     case .texture(let name, let ext):
