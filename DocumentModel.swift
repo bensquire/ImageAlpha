@@ -1,5 +1,5 @@
 import AppKit
-import Combine
+import Observation
 import os
 
 enum QuantizationMode: String, CaseIterable {
@@ -17,69 +17,66 @@ struct QuantizationStats: Equatable {
 }
 
 @MainActor
-class DocumentModel: ObservableObject {
-    @Published var sourceImage: NSImage?
-    @Published var sourceCGImage: CGImage?
-    @Published var numberOfColors: Int = 256
-    @Published var quantizationMode: QuantizationMode = .colors
-    @Published var targetQuality: Int = 80
-    @Published var dithering: Bool = false
-    @Published var speed: Int = 3
-    @Published var showOriginal: Bool = false { didSet { if showOriginal { compareMode = false } } }
-    @Published var quantizedImage: NSImage?
-    @Published var quantizedPNGData: Data?
-    @Published var compareMode: Bool = false { didSet { if compareMode { showOriginal = false } } }
-    @Published var isBusy: Bool = false
-    @Published var statusMessage: String = "To get started, drop PNG image onto main area on the right"
-    @Published var selectedBackground: BackgroundStyle = .checkerboard
-    @Published var sourceURL: URL?
-    @Published var sourceColorCount: Int?
+@Observable
+class DocumentModel {
+    var sourceImage: NSImage?
+    var sourceCGImage: CGImage?
+    // The quantization parameters. Changing one marks the document edited and
+    // quantizes again, after a 50 ms pause so scrubbing a slider runs once.
+    var numberOfColors: Int = 256 { didSet { parametersChanged() } }
+    var quantizationMode: QuantizationMode = .colors { didSet { parametersChanged() } }
+    var targetQuality: Int = 80 { didSet { parametersChanged() } }
+    var dithering: Bool = Preferences.dithering ?? false { didSet { parametersChanged() } }
+    var speed: Int = Preferences.speed { didSet { parametersChanged() } }
+    var showOriginal: Bool = false { didSet { if showOriginal { compareMode = false } } }
+    var quantizedImage: NSImage?
+    var quantizedPNGData: Data?
+    var compareMode: Bool = false { didSet { if compareMode { showOriginal = false } } }
+    var isBusy: Bool = false
+    var statusMessage: String = "To get started, drop PNG image onto main area on the right"
+    var selectedBackground: BackgroundStyle = .checkerboard
+    var sourceURL: URL?
+    var sourceColorCount: Int?
     /// Stats for the current result; nil until quantization completes or in
     /// 24-bit passthrough.
-    @Published var resultStats: QuantizationStats?
+    var resultStats: QuantizationStats?
 
     /// Called when the user changes a quantization parameter while an image
     /// is loaded, so the owning document can mark itself edited.
-    var didChangeParameters: (() -> Void)?
+    @ObservationIgnored var didChangeParameters: (() -> Void)?
 
     private static let logger = Logger(subsystem: "net.pornel.ImageAlpha", category: "DocumentModel")
 
     private let quantizer = Quantizer()
-    private var quantizationTask: Task<Void, Never>?
+    @ObservationIgnored private var parameterTask: Task<Void, Never>?
+    @ObservationIgnored private var quantizationTask: Task<Void, Never>?
     /// Debounced background maximum-effort re-encode of the current result.
     /// Purely a preview-size nicety: saving calls finalPNGData() directly.
-    private var refinementTask: Task<Void, Never>?
-    private var cancellables = Set<AnyCancellable>()
-    private var sourceFileData: Data?
+    @ObservationIgnored private var refinementTask: Task<Void, Never>?
+    @ObservationIgnored private var sourceFileData: Data?
     /// Options that produced the current quantized output, so repeat requests
     /// with identical parameters are skipped.
-    private var completedOptions: QuantizationOptions?
+    @ObservationIgnored private var completedOptions: QuantizationOptions?
     /// Most recent results keyed by their options, capped at two entries, so
     /// toggling between modes restores either side without re-quantizing.
-    private var recentResults: [(options: QuantizationOptions, result: QuantizationResult)] = []
+    @ObservationIgnored private var recentResults: [(options: QuantizationOptions, result: QuantizationResult)] = []
     /// Incremented on every load; async work captures the current value and
     /// discards its result if another image was loaded in the meantime.
-    private var loadGeneration = 0
+    @ObservationIgnored private var loadGeneration = 0
 
-    init() {
-        if let dithered = Preferences.dithering {
-            self.dithering = dithered
-        }
-        self.speed = Preferences.speed
-
-        let paletteParams = Publishers.CombineLatest3($numberOfColors, $dithering, $speed)
-        let qualityParams = Publishers.CombineLatest($quantizationMode, $targetQuality)
-        Publishers.CombineLatest(paletteParams, qualityParams)
-            .dropFirst()
-            .debounce(for: .milliseconds(50), scheduler: RunLoop.main)
-            .sink { [weak self] _ in
-                guard let self else { return }
-                if self.sourceImage != nil {
-                    self.didChangeParameters?()
-                }
-                self.requestQuantization()
+    /// Whether a change is an edit is decided when it happens, not when the
+    /// debounce ends, by which time a file being opened may have loaded its image.
+    private func parametersChanged() {
+        let isEdit = sourceImage != nil
+        parameterTask?.cancel()
+        parameterTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(50))
+            guard let self, !Task.isCancelled else { return }
+            if isEdit {
+                self.didChangeParameters?()
             }
-            .store(in: &cancellables)
+            self.requestQuantization()
+        }
     }
 
     /// Throws, leaving the current image in place, when the file can't be
@@ -88,7 +85,8 @@ class DocumentModel: ObservableObject {
         let data = try Data(contentsOf: url)
         // A nil rect means the image's own size (NSImage.h).
         guard let image = NSImage(data: data),
-              let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+            let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil)
+        else {
             throw CocoaError(.fileReadCorruptFile, userInfo: [NSURLErrorKey: url])
         }
 
@@ -220,7 +218,7 @@ class DocumentModel: ObservableObject {
     /// encode is an upper bound, so the shown size only ever improves.
     private func refineCurrentResult() async {
         guard let options = completedOptions,
-              let bitmap = recentResults.first(where: { $0.options == options })?.result.bitmap
+            let bitmap = recentResults.first(where: { $0.options == options })?.result.bitmap
         else { return }
 
         let data = await Task.detached(priority: .utility) {
@@ -229,7 +227,7 @@ class DocumentModel: ObservableObject {
 
         // Re-check: parameters may have moved on while encoding.
         guard completedOptions == options,
-              let index = recentResults.firstIndex(where: { $0.options == options })
+            let index = recentResults.firstIndex(where: { $0.options == options })
         else { return }
         recentResults[index].result.bitmap = nil
         // Level 9 should never lose, but keep the smaller file if it does.
@@ -264,28 +262,31 @@ class DocumentModel: ObservableObject {
         )
     }
 
+    /// Numbers follow `locale`, the user's own by default, rather than a
+    /// fixed "," separator.
     nonisolated static func formatStatus(
         quantizedSize: Int,
         sourceSize: Int?,
         sourceColorCount: Int?,
         colorsDisplay: String,
-        quality: Int? = nil
+        quality: Int? = nil,
+        locale: Locale = .current
     ) -> String {
-        let fmt = decimalFormatter
+        func number(_ value: Int) -> String { value.formatted(.number.locale(locale)) }
 
         // Build "Original: …" part
         var originalParts: [String] = []
         if let count = sourceColorCount {
-            let countString = fmt.string(from: NSNumber(value: count)) ?? "\(count)"
+            let countString = number(count)
             originalParts.append("\(countString) colors")
         }
         if let sourceSize, sourceSize > 0 {
-            let sizeString = fmt.string(from: NSNumber(value: sourceSize)) ?? "\(sourceSize)"
+            let sizeString = number(sourceSize)
             originalParts.append("\(sizeString) bytes")
         }
 
         // Build "Quantized: …" part
-        let quantizedSizeStr = fmt.string(from: NSNumber(value: quantizedSize)) ?? "\(quantizedSize)"
+        let quantizedSizeStr = number(quantizedSize)
         var quantizedParts: [String] = []
         if sourceColorCount != nil {
             quantizedParts.append("\(colorsDisplay) colors")
@@ -310,13 +311,6 @@ class DocumentModel: ObservableObject {
         }
     }
 
-    private nonisolated static let decimalFormatter: NumberFormatter = {
-        let fmt = NumberFormatter()
-        fmt.numberStyle = .decimal
-        fmt.groupingSeparator = ","
-        return fmt
-    }()
-
     private nonisolated static func countUniqueColors(in cgImage: CGImage) -> Int {
         let width = cgImage.width
         let height = cgImage.height
@@ -325,7 +319,7 @@ class DocumentModel: ObservableObject {
         let totalBytes = bytesPerRow * height
 
         guard let colorSpace = CGColorSpace(name: CGColorSpace.sRGB),
-              let context = CGContext(
+            let context = CGContext(
                 data: nil,
                 width: width,
                 height: height,
@@ -333,8 +327,9 @@ class DocumentModel: ObservableObject {
                 bytesPerRow: bytesPerRow,
                 space: colorSpace,
                 bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-              ),
-              let data = context.data else {
+            ),
+            let data = context.data
+        else {
             return 0
         }
 

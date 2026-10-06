@@ -23,8 +23,8 @@ class ImageAlphaDocument: NSDocument {
             self?.updateChangeCount(.changeDone)
         }
 
-        let contentView = DocumentContentView(model: model) { [weak self] urls in
-            self?.openDropped(urls)
+        let contentView = DocumentContentView(model: model) { [weak self] urls, areCopies in
+            self?.openDropped(urls, areCopies: areCopies)
         }
 
         let window = NSWindow(
@@ -35,8 +35,9 @@ class ImageAlphaDocument: NSDocument {
         )
         window.contentView = NSHostingView(rootView: contentView)
         window.center()
+        // No title here: addWindowController(_:) has the document fill it in,
+        // proxy icon and all. /documentation/appkit/nsdocument/addwindowcontroller(_:)
         window.setFrameAutosaveName("ImageAlphaDocument")
-        window.title = fileURL?.lastPathComponent ?? "ImageAlpha"
         window.minSize = NSSize(width: 500, height: 400)
 
         let controller = NSWindowController(window: window)
@@ -49,9 +50,7 @@ class ImageAlphaDocument: NSDocument {
 
     override func data(ofType typeName: String) throws -> Data {
         guard let data = model.quantizedPNGData else {
-            throw NSError(domain: NSOSStatusErrorDomain, code: -1, userInfo: [
-                NSLocalizedDescriptionKey: "No quantized image data available"
-            ])
+            throw CocoaError(.fileWriteUnknown)
         }
         return data
     }
@@ -71,10 +70,14 @@ class ImageAlphaDocument: NSDocument {
         return true
     }
 
-    override func save(_ sender: Any?) {
-        // "Save" overwrites the original — confirm first
-        guard let url = fileURL, let window = windowControllers.first?.window else {
-            saveAs(sender)
+    /// Saving overwrites the original with the quantized image, so confirm
+    /// first. Every save to the file comes through here: File → Save "merely
+    /// invokes" this method, and so does Save in the close and quit sheets
+    /// (NSDocument.h, saveDocument: and canCloseDocumentWithDelegate:).
+    override func save(withDelegate delegate: Any?, didSave didSaveSelector: Selector?, contextInfo: UnsafeMutableRawPointer?) {
+        guard let url = fileURL else {
+            // Untitled: NSDocument runs the Save panel, so nothing is overwritten.
+            super.save(withDelegate: delegate, didSave: didSaveSelector, contextInfo: contextInfo)
             return
         }
 
@@ -86,18 +89,47 @@ class ImageAlphaDocument: NSDocument {
         alert.addButton(withTitle: "Save As\u{2026}")
         alert.addButton(withTitle: "Cancel")
 
-        alert.beginSheetModal(for: window) { response in
-            switch response {
-            case .alertFirstButtonReturn:
-                // NSDocument's own Save first checks whether another app has
-                // changed the file. /documentation/appkit/nsdocument/save(withdelegate:didsave:contextinfo:)
-                super.save(sender)
-            case .alertSecondButtonReturn:
-                self.saveAs(sender)
-            default:
-                break
-            }
+        let finish = { (response: NSApplication.ModalResponse) in
+            self.continueSave(after: response, delegate: delegate, didSave: didSaveSelector, contextInfo: contextInfo)
         }
+        // "may be nil, in which case the sender should present an app-modal
+        // panel." /documentation/appkit/nsdocument/windowforsheet
+        if let window = windowForSheet {
+            alert.beginSheetModal(for: window, completionHandler: finish)
+        } else {
+            finish(alert.runModal())
+        }
+    }
+
+    /// Carries out the choice made in the overwrite alert. Whoever asked for
+    /// the save hears the outcome either way, so a close or quit can go ahead
+    /// or stop.
+    func continueSave(
+        after response: NSApplication.ModalResponse,
+        delegate: Any?, didSave didSaveSelector: Selector?, contextInfo: UnsafeMutableRawPointer?
+    ) {
+        switch response {
+        case .alertFirstButtonReturn:
+            // NSDocument's own save also checks whether another app has changed
+            // the file. /documentation/appkit/nsdocument/save(withdelegate:didsave:contextinfo:)
+            super.save(withDelegate: delegate, didSave: didSaveSelector, contextInfo: contextInfo)
+        case .alertSecondButtonReturn:
+            runModalSavePanel(for: .saveAsOperation, delegate: delegate, didSave: didSaveSelector, contextInfo: contextInfo)
+        default:
+            reportSave(false, to: delegate, selector: didSaveSelector, contextInfo: contextInfo)
+        }
+    }
+
+    /// Sends the didSave callback NSDocument's save methods take, whose
+    /// signature is document:didSave:contextInfo:.
+    /// /documentation/appkit/nsdocument/runmodalsavepanel(for:delegate:didsave:contextinfo:)
+    private func reportSave(
+        _ didSave: Bool, to delegate: Any?, selector: Selector?, contextInfo: UnsafeMutableRawPointer?
+    ) {
+        guard let delegate = delegate as? NSObject, let selector, delegate.responds(to: selector) else { return }
+        typealias DidSave = @convention(c) (NSObject, Selector, NSDocument, Bool, UnsafeMutableRawPointer?) -> Void
+        let callback = unsafeBitCast(delegate.method(for: selector), to: DidSave.self)
+        callback(delegate, selector, self, didSave, contextInfo)
     }
 
     override func save(
@@ -133,23 +165,38 @@ class ImageAlphaDocument: NSDocument {
     /// recording the document's location during its initial opening or saving".
     /// /documentation/appkit/nsdocument/fileurl
     /// The empty untitled window that received the drop gives way to the first.
-    private func openDropped(_ urls: [URL]) {
+    /// A promised file, received into a temporary folder, opens untitled
+    /// instead, so Save asks where to put it rather than offering to overwrite
+    /// a copy nobody can see. /documentation/appkit/nsdocumentcontroller/duplicatedocument(withcontentsof:copying:displayname:)
+    private func openDropped(_ urls: [URL], areCopies: Bool) {
         var replacesSelf = fileURL == nil
+        let opened = { [weak self] (error: Error?) in
+            if let error {
+                NSDocumentController.shared.presentError(error)
+            } else if replacesSelf {
+                replacesSelf = false
+                self?.close()
+            }
+        }
         for url in urls {
-            NSDocumentController.shared.openDocument(withContentsOf: url, display: true) { [weak self] _, _, error in
-                if let error {
-                    NSDocumentController.shared.presentError(error)
-                } else if replacesSelf {
-                    replacesSelf = false
-                    self?.close()
+            if areCopies {
+                do {
+                    let name = url.deletingPathExtension().lastPathComponent
+                    _ = try NSDocumentController.shared.duplicateDocument(withContentsOf: url, copying: false, displayName: name)
+                    opened(nil)
+                } catch {
+                    opened(error)
                 }
+            } else {
+                NSDocumentController.shared.openDocument(withContentsOf: url, display: true) { _, _, error in opened(error) }
             }
         }
     }
 
     @objc func copy(_ sender: Any?) {
         guard let data = model.quantizedPNGData,
-              let image = model.quantizedImage else {
+            let image = model.quantizedImage
+        else {
             NSSound.beep()
             return
         }
@@ -179,12 +226,11 @@ class ImageAlphaDocument: NSDocument {
 
     override func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
         let action = menuItem.action
-        if action == Selector(("copy:")) {
+        if action == #selector(ImageAlphaDocument.copy(_:)) {
             return model.quantizedPNGData != nil
         }
         if model.sourceImage == nil {
-            if action == #selector(NSDocument.save(_:)) ||
-               action == #selector(NSDocument.saveAs(_:)) {
+            if action == #selector(NSDocument.save(_:)) || action == #selector(NSDocument.saveAs(_:)) {
                 return false
             }
         }

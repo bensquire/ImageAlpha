@@ -1,5 +1,34 @@
 # Changelog
 
+## v0.1.0
+
+- Saving from the close or quit sheet now asks before overwriting the
+  original, as File → Save does; Cancel keeps the window open or stops the
+  quit
+- Overwrite now goes through the standard save, which warns if another app
+  has changed the file
+- Dropped files open as documents of their own, and only PNGs are accepted,
+  so a dropped JPEG can no longer be overwritten with PNG data. Dropping onto
+  the empty starting window still replaces it
+- Images dragged from Photos, Mail or a browser can be dropped onto the
+  canvas; they open as untitled documents
+- Dragging the image out names the file after the original
+  (`dice-quantized.png`), never replaces an existing file, and no longer
+  reports success without writing anything
+- Scrolling pans the image; pinch, ⌘-scroll or ⌥-scroll zooms. Zoom In no
+  longer jumps from a fitted view straight to 4×
+- Nearly transparent pixels keep their colour when quantized, and colours
+  are read and previewed in sRGB
+- A file that isn't a valid image now shows an error instead of opening an
+  empty window, and a failed load keeps the current image
+- The canvas re-fits when the window is resized, and the checkerboard
+  follows each window's light or dark appearance
+- Help → ImageAlpha Help opens the project page; added File → New and
+  Window → Bring All to Front, and removed a duplicate Open Recent
+- VoiceOver labels for the colour slider and stepper; the background
+  swatches are now buttons that VoiceOver and the keyboard can reach
+- The status bar formats numbers for your locale
+
 ## v0.0.12
 
 - Saved PNGs are now compressed with zlib at maximum effort (system libz,

@@ -2,21 +2,26 @@ import AppKit
 import QuartzCore
 
 protocol ImageCanvasDelegate: AnyObject {
-    func canvasDidReceiveDrop(urls: [URL])
+    /// `areCopies` when the files were promised and received into a temporary
+    /// folder, so they belong to no one and shouldn't be saved back to.
+    func canvasDidReceiveDrop(urls: [URL], areCopies: Bool)
     func canvasShowOriginalChanged(_ showOriginal: Bool)
 }
 
 class ImageCanvasNSView: NSView {
 
     weak var delegate: ImageCanvasDelegate?
-    var pngDataProvider: (() -> Data?)?
+    /// What a drag out of the canvas carries; nil when there's nothing to drag.
+    var dragOutProvider: (() -> PromisedPNG?)?
 
     var imageLayer: CALayer!
     private var backgroundLayer: CALayer!
     private var topShadow: CAGradientLayer!
     private var leftShadow: CAGradientLayer!
 
-    var mouseIsDown = false
+    var mouseIsDown = false {
+        didSet { refreshCursor() }
+    }
     var scrollZoomAccumulator: CGFloat = 0
     private var dragBackground = false
     private var dragStart: CGPoint = .zero
@@ -79,7 +84,7 @@ class ImageCanvasNSView: NSView {
     var splitPosition: CGFloat? {
         didSet {
             updateSplitLayers()
-            window?.invalidateCursorRects(for: self)
+            refreshCursor()
         }
     }
 
@@ -87,10 +92,12 @@ class ImageCanvasNSView: NSView {
     private var splitDividerLayer: CALayer?
     private var isDraggingSplit = false
 
-    var zoom: CGFloat = 2.0 {
-        didSet {
+    /// Setting it zooms to that factor and stops following the window size.
+    var zoom: CGFloat {
+        get { currentZoom }
+        set {
             zoomingToFill = 0
-            applyZoom(zoom)
+            applyZoom(newValue)
         }
     }
 
@@ -141,17 +148,14 @@ class ImageCanvasNSView: NSView {
         hostLayer.addSublayer(imageLayer)
 
         addShadows()
-        // NSView takes only direct (Touch Bar) touches unless asked; the
-        // three-finger "show original" needs the trackpad's. NSView.h, allowedTouchTypes
-        allowedTouchTypes.insert(.indirect)
-        registerForDraggedTypes([.fileURL])
+        registerForDraggedTypes([.fileURL] + NSFilePromiseReceiver.readableDraggedTypes.map { NSPasteboard.PasteboardType($0) })
         setUpTrackingArea()
     }
 
     private func setUpTrackingArea() {
         let area = NSTrackingArea(
             rect: .zero,
-            options: [.activeInActiveApp, .inVisibleRect, .mouseEnteredAndExited],
+            options: [.activeInActiveApp, .inVisibleRect, .cursorUpdate, .mouseMoved],
             owner: self,
             userInfo: nil
         )
@@ -219,11 +223,11 @@ class ImageCanvasNSView: NSView {
     }
 
     @objc func zoomIn(_ sender: Any?) {
-        zoom *= 2.0
+        zoom *= 2
     }
 
     @objc func zoomOut(_ sender: Any?) {
-        zoom /= 2.0
+        zoom /= 2
     }
 
     private func applyZoom(_ z: CGFloat) {
@@ -239,7 +243,7 @@ class ImageCanvasNSView: NSView {
         repositionImageLayer()
     }
 
-    var currentZoom: CGFloat = 2.0
+    private(set) var currentZoom: CGFloat = 2.0
 
     // MARK: - Image offset
 
@@ -376,10 +380,8 @@ class ImageCanvasNSView: NSView {
         let halfWidth = max(50, imageSize.width * currentZoom + 15) / 2
         let halfHeight = max(50, imageSize.height * currentZoom + 15) / 2
         let offset = imageOffset
-        return point.x >= offset.x + frameSize.width / 2 - halfWidth &&
-               point.y >= offset.y + frameSize.height / 2 - halfHeight &&
-               point.x <= offset.x + frameSize.width / 2 + halfWidth &&
-               point.y <= offset.y + frameSize.height / 2 + halfHeight
+        return point.x >= offset.x + frameSize.width / 2 - halfWidth && point.y >= offset.y + frameSize.height / 2 - halfHeight
+            && point.x <= offset.x + frameSize.width / 2 + halfWidth && point.y <= offset.y + frameSize.height / 2 + halfHeight
     }
 }
 
@@ -395,7 +397,8 @@ extension ImageCanvasNSView {
             dragBackground = !pointIsInImage(point)
             if event.modifierFlags.contains([.shift])
                 || event.modifierFlags.contains([.option])
-                || event.modifierFlags.contains([.command]) {
+                || event.modifierFlags.contains([.command])
+            {
                 dragBackground = !dragBackground
             }
         } else {
@@ -404,17 +407,13 @@ extension ImageCanvasNSView {
 
         dragStart = CGPoint(x: point.x, y: point.y)
 
-        // Check if clicking near the split divider
-        if let pos = splitPosition {
-            let dividerX = bounds.width * pos
-            if abs(point.x - dividerX) < 8 {
-                isDraggingSplit = true
-                return
-            }
+        if isOnDivider(point) {
+            isDraggingSplit = true
+            return
         }
 
         // Track potential drag-out if clicking on the image with quantized data available
-        if !dragBackground && pointIsInImage(point) && pngDataProvider?() != nil {
+        if !dragBackground && pointIsInImage(point) && dragOutProvider?() != nil {
             potentialDragStart = point
         } else {
             potentialDragStart = nil
@@ -430,7 +429,6 @@ extension ImageCanvasNSView {
             }
         } else {
             mouseIsDown = true
-            window?.invalidateCursorRects(for: self)
             mouseDragged(with: event)
         }
     }
@@ -451,7 +449,7 @@ extension ImageCanvasNSView {
         if let start = potentialDragStart {
             let dx = point.x - start.x
             let dy = point.y - start.y
-            if dx * dx + dy * dy > 16 { // 4px threshold
+            if dx * dx + dy * dy > 16 {  // 4px threshold
                 potentialDragStart = nil
                 beginImageDrag(from: event)
                 return
@@ -464,7 +462,14 @@ extension ImageCanvasNSView {
 
         if let bg = backgroundRenderer, dragBackground {
             bg.moveBy(NSSize(width: dx, height: dy))
-        } else if displayImage != nil || originalImage != nil {
+            repositionImageLayer()
+        } else {
+            pan(dx: dx, dy: dy)
+        }
+    }
+
+    private func pan(dx: CGFloat, dy: CGFloat) {
+        if hasImage {
             imageOffset = CGPoint(x: imageOffset.x + dx, y: imageOffset.y + dy)
             limitImageOffset()
         }
@@ -476,10 +481,24 @@ extension ImageCanvasNSView {
         potentialDragStart = nil
         isDraggingOut = false
         isDraggingSplit = false
-        window?.invalidateCursorRects(for: self)
     }
 
+    /// Scrolling pans the image, as it would a document. With Command or
+    /// Option held it zooms instead, for mice that can't pinch.
     override func scrollWheel(with event: NSEvent) {
+        if !event.modifierFlags.isDisjoint(with: [.command, .option]) {
+            zoom(byScrolling: event)
+            return
+        }
+        // A mouse wheel reports lines, to be multiplied "by the line or row
+        // height" (/documentation/appkit/nsevent/scrollingdeltay); 10 points
+        // a line is our choice. Positive deltas scroll toward the top left,
+        // which moves the image right and down.
+        let pointsPerDelta: CGFloat = event.hasPreciseScrollingDeltas ? 1 : 10
+        pan(dx: event.scrollingDeltaX * pointsPerDelta, dy: -event.scrollingDeltaY * pointsPerDelta)
+    }
+
+    private func zoom(byScrolling event: NSEvent) {
         // Trackpads emit many small precise deltas per gesture; accumulate to
         // a threshold instead of doubling the zoom on every event.
         let delta = event.scrollingDeltaY
@@ -513,21 +532,7 @@ extension ImageCanvasNSView {
         zoom = max(0.25, z)
     }
 
-    // 3-finger touch to show original
-    override func touchesBegan(with event: NSEvent) { updateTouches(event) }
-    override func touchesMoved(with event: NSEvent) { updateTouches(event) }
-    override func touchesEnded(with event: NSEvent) { updateTouches(event) }
-
-    /// .touching is began, moved or stationary. NSTouch.h, NSTouchPhaseTouching
-    private func updateTouches(_ event: NSEvent) {
-        let touches = event.touches(matching: .touching, in: self)
-        let show = touches.count >= 3
-        if showOriginal != show {
-            showOriginal = show
-            delegate?.canvasShowOriginalChanged(show)
-        }
-    }
-
+    // No three-finger "show original": it fought three-finger drag and swipes.
     override func otherMouseDown(with event: NSEvent) {
         showOriginal = true
         delegate?.canvasShowOriginalChanged(true)

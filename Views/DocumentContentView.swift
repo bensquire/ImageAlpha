@@ -1,8 +1,9 @@
 import SwiftUI
 
 struct DocumentContentView: View {
-    @ObservedObject var model: DocumentModel
-    var onDrop: (([URL]) -> Void)?
+    var model: DocumentModel
+    /// Dropped files, and whether they're temporary copies of promised files.
+    var onDrop: (([URL], Bool) -> Void)?
 
     var body: some View {
         HSplitView {

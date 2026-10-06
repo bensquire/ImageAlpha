@@ -1,5 +1,5 @@
-import Foundation
 import Compression
+import Foundation
 
 /// Palette + per-pixel indices: everything IndexedPNGEncoder needs to produce
 /// a PNG, independent of how the quantization was done.
@@ -11,8 +11,11 @@ struct IndexedBitmap {
 }
 
 /// Encodes palette-quantized pixels as a color-type-3 (indexed) PNG, including
-/// PLTE/tRNS chunks and minimal 1/2/4/8 bit depth. ImageIO can only write
-/// truecolor PNGs, which would discard the size benefit of quantization.
+/// PLTE/tRNS chunks and minimal 1/2/4/8 bit depth. Apple documents no way to
+/// have ImageIO write a palette: its PNG properties have no palette or bit-depth
+/// key (/documentation/imageio/png-image-properties), and an indexed
+/// CGColorSpace's table has no alpha for tRNS. A truecolor file would discard
+/// the size benefit of quantization.
 enum IndexedPNGEncoder {
 
     struct PaletteEntry: Equatable {
@@ -23,7 +26,8 @@ enum IndexedPNGEncoder {
     }
 
     enum CompressionEffort {
-        /// Apple's Compression framework: fastest, fixed mid-level deflate.
+        /// Apple's Compression framework: fastest, and "the zlib encoder at
+        /// level 5 only". /documentation/compression/compression_zlib
         /// Used for interactive previews.
         case fast
         /// System zlib at level 9: a few percent smaller, several times
@@ -57,9 +61,10 @@ enum IndexedPNGEncoder {
         effort: CompressionEffort = .fast
     ) -> Data? {
         guard width > 0, height > 0,
-              (1...256).contains(palette.count),
-              pixels.count == width * height,
-              !pixels.contains(where: { Int($0) >= palette.count }) else {
+            (1...256).contains(palette.count),
+            pixels.count == width * height,
+            !pixels.contains(where: { Int($0) >= palette.count })
+        else {
             return nil
         }
 
@@ -72,10 +77,10 @@ enum IndexedPNGEncoder {
         ihdr.appendBigEndian(UInt32(width))
         ihdr.appendBigEndian(UInt32(height))
         ihdr.append(UInt8(depth))
-        ihdr.append(3) // color type: indexed
-        ihdr.append(0) // compression
-        ihdr.append(0) // filter
-        ihdr.append(0) // interlace
+        ihdr.append(3)  // color type: indexed
+        ihdr.append(0)  // compression
+        ihdr.append(0)  // filter
+        ihdr.append(0)  // interlace
 
         var plte = Data(capacity: palette.count * 3)
         for entry in palette {
@@ -111,7 +116,7 @@ enum IndexedPNGEncoder {
             pixels.withUnsafeBufferPointer { src in
                 for row in 0..<height {
                     var write = row * (rowBytes + 1)
-                    dst[write] = 0 // filter: None
+                    dst[write] = 0  // filter: None
                     write += 1
                     if bitDepth == 8 {
                         UnsafeMutableRawPointer(dst.baseAddress! + write)

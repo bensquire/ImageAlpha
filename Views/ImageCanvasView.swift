@@ -1,13 +1,16 @@
 import SwiftUI
 
 struct ImageCanvasView: NSViewRepresentable {
-    @ObservedObject var model: DocumentModel
-    var onDrop: (([URL]) -> Void)?
+    var model: DocumentModel
+    var onDrop: (([URL], Bool) -> Void)?
 
     func makeNSView(context: Context) -> ImageCanvasNSView {
         let view = ImageCanvasNSView(frame: .zero)
         view.delegate = context.coordinator
-        view.pngDataProvider = { [weak model] in model?.quantizedPNGData }
+        view.dragOutProvider = { [weak model] in
+            guard let model, let data = model.quantizedPNGData else { return nil }
+            return PromisedPNG(data: data, fileName: ImageCanvasNSView.dragOutFileName(for: model.sourceURL?.lastPathComponent))
+        }
         view.zoomToFill()
         return view
     }
@@ -35,9 +38,10 @@ struct ImageCanvasView: NSViewRepresentable {
         // Update display image (skip if quantizedImage is the same object as sourceImage,
         // e.g. when numberOfColors > 256 — avoids scale/size conflicts)
         if !model.showOriginal,
-           let qi = model.quantizedImage,
-           qi !== model.sourceImage,
-           nsView.displayImage !== qi {
+            let qi = model.quantizedImage,
+            qi !== model.sourceImage,
+            nsView.displayImage !== qi
+        {
             nsView.displayImage = qi
         }
 
@@ -57,17 +61,17 @@ struct ImageCanvasView: NSViewRepresentable {
 
     class Coordinator: NSObject, ImageCanvasDelegate {
         let model: DocumentModel
-        let onDrop: (([URL]) -> Void)?
+        let onDrop: (([URL], Bool) -> Void)?
         var lastBackground: BackgroundStyle?
         var lastSourceImage: NSImage?
 
-        init(model: DocumentModel, onDrop: (([URL]) -> Void)?) {
+        init(model: DocumentModel, onDrop: (([URL], Bool) -> Void)?) {
             self.model = model
             self.onDrop = onDrop
         }
 
-        func canvasDidReceiveDrop(urls: [URL]) {
-            onDrop?(urls)
+        func canvasDidReceiveDrop(urls: [URL], areCopies: Bool) {
+            onDrop?(urls, areCopies)
         }
 
         func canvasShowOriginalChanged(_ showOriginal: Bool) {

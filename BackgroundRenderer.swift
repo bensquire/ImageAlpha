@@ -28,6 +28,44 @@ enum BackgroundStyle: Hashable, Identifiable {
         .texture(name: "dark-lucy-leaves-128x128", ext: "png"),
         .texture(name: "brick-wall-128x128", ext: "png"),
     ]
+
+    /// What VoiceOver calls the style's button in the sidebar.
+    var accessibilityName: String {
+        switch self {
+        case .checkerboard:
+            return "Checkerboard"
+        case .color(1, 0, 0):
+            return "Red"
+        case .color(0, 1, 0):
+            return "Green"
+        case .color(0, 0, 1):
+            return "Blue"
+        case .color:
+            return "Solid color"
+        case .texture(let name, _):
+            // "white-gravel-128x128" → "White gravel"
+            let words = name.replacingOccurrences(of: "-128x128", with: "").replacingOccurrences(of: "-", with: " ")
+            return words.prefix(1).uppercased() + words.dropFirst()
+        }
+    }
+
+    /// Read from the bundle once per texture, since the sidebar's thumbnails
+    /// ask on every redraw. NSCache is safe to use from any thread.
+    private static let textureCache = NSCache<NSString, NSImage>()
+
+    /// The texture's image; nil for other styles or a missing file. The
+    /// subdirectory form, because path(forResource:ofType:) "does not recurse
+    /// through other subfolders". /documentation/foundation/bundle/path(forresource:oftype:)
+    var textureImage: NSImage? {
+        guard case .texture(let name, let ext) = self else { return nil }
+        let key = "\(name).\(ext)" as NSString
+        if let cached = Self.textureCache.object(forKey: key) { return cached }
+        guard let url = Bundle.main.url(forResource: name, withExtension: ext, subdirectory: "textures"),
+            let image = NSImage(contentsOf: url)
+        else { return nil }
+        Self.textureCache.setObject(image, forKey: key)
+        return image
+    }
 }
 
 protocol BackgroundRendering {
@@ -100,26 +138,31 @@ class PatternBackground: BackgroundRendering {
         // Retain the CGImage for the pattern callback lifetime
         let retainedImage = Unmanaged<CGImage>.passRetained(img)
 
-        var callbacks = CGPatternCallbacks(version: 0, drawPattern: { info, ctx in
-            guard let info = info else { return }
-            let image = Unmanaged<CGImage>.fromOpaque(info).takeUnretainedValue()
-            ctx.draw(image, in: CGRect(x: 0, y: 0, width: CGFloat(image.width), height: CGFloat(image.height)))
-        }, releaseInfo: { info in
-            guard let info = info else { return }
-            Unmanaged<CGImage>.fromOpaque(info).release()
-        })
+        var callbacks = CGPatternCallbacks(
+            version: 0,
+            drawPattern: { info, ctx in
+                guard let info = info else { return }
+                let image = Unmanaged<CGImage>.fromOpaque(info).takeUnretainedValue()
+                ctx.draw(image, in: CGRect(x: 0, y: 0, width: CGFloat(image.width), height: CGFloat(image.height)))
+            },
+            releaseInfo: { info in
+                guard let info = info else { return }
+                Unmanaged<CGImage>.fromOpaque(info).release()
+            })
 
         let rawPtr = retainedImage.toOpaque()
-        guard let pattern = CGPattern(
-            info: rawPtr,
-            bounds: CGRect(x: 0, y: 0, width: width, height: height),
-            matrix: CGAffineTransform(a: 1, b: 0, c: 0, d: 1, tx: offset.x, ty: offset.y),
-            xStep: width,
-            yStep: height,
-            tiling: .constantSpacing,
-            isColored: true,
-            callbacks: &callbacks
-        ) else {
+        guard
+            let pattern = CGPattern(
+                info: rawPtr,
+                bounds: CGRect(x: 0, y: 0, width: width, height: height),
+                matrix: CGAffineTransform(a: 1, b: 0, c: 0, d: 1, tx: offset.x, ty: offset.y),
+                xStep: width,
+                yStep: height,
+                tiling: .constantSpacing,
+                isColored: true,
+                callbacks: &callbacks
+            )
+        else {
             retainedImage.release()
             return
         }
@@ -192,9 +235,8 @@ func makeBackgroundRenderer(for style: BackgroundStyle, isDark: Bool) -> Backgro
         return CheckerboardBackground(isDark: isDark)
     case .color(let r, let g, let b):
         return ColorBackground(r: r, g: g, b: b)
-    case .texture(let name, let ext):
-        if let path = Bundle.main.path(forResource: "textures/\(name)", ofType: ext),
-           let image = NSImage(contentsOfFile: path) {
+    case .texture:
+        if let image = style.textureImage {
             return PatternBackground(image: image)
         }
         return ColorBackground(r: 0.5, g: 0.5, b: 0.5)

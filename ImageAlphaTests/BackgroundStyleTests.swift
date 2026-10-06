@@ -1,4 +1,5 @@
 import Testing
+
 @testable import ImageAlpha
 
 struct BackgroundStyleTests {
@@ -36,6 +37,46 @@ struct BackgroundStyleTests {
 
         // Assert
         #expect(id == "texture-brick-wall-128x128.png")
+    }
+
+    // MARK: - Accessibility names
+
+    @Test func textureIsNamedFromItsFile() {
+        // Act
+        let name = BackgroundStyle.texture(name: "white-gravel-128x128", ext: "png").accessibilityName
+
+        // Assert
+        #expect(name == "White gravel")
+    }
+
+    @Test func primaryColorIsNamed() {
+        // Act
+        let name = BackgroundStyle.color(red: 0, green: 0, blue: 1).accessibilityName
+
+        // Assert
+        #expect(name == "Blue")
+    }
+
+    // MARK: - Texture images
+
+    @Test func textureImageIsLoadedOnce() throws {
+        // Arrange
+        let style = BackgroundStyle.texture(name: "brick-wall-128x128", ext: "png")
+
+        // Act
+        let first = try #require(style.textureImage)
+        let second = try #require(style.textureImage)
+
+        // Assert: the same object, not a second read from disk
+        #expect(first === second)
+    }
+
+    @Test func checkerboardHasNoTextureImage() {
+        // Act
+        let image = BackgroundStyle.checkerboard.textureImage
+
+        // Assert
+        #expect(image == nil)
     }
 
     // MARK: - allBackgrounds

@@ -1,8 +1,9 @@
-import Testing
-import Foundation
 import CoreGraphics
+import Foundation
 import ImageIO
+import Testing
 import UniformTypeIdentifiers
+
 @testable import ImageAlpha
 
 /// Decoded PNG as straight-alpha RGBA bytes, for round-trip assertions.
@@ -15,20 +16,23 @@ struct DecodedImage {
     /// identity there); semi-transparent pixels come back premultiplied.
     init?(pngData: Data) {
         guard let source = CGImageSourceCreateWithData(pngData as CFData, nil),
-              let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else { return nil }
+            let image = CGImageSourceCreateImageAtIndex(source, 0, nil)
+        else { return nil }
         width = image.width
         height = image.height
         var pixels = [UInt8](repeating: 0, count: width * height * 4)
         let drawn = pixels.withUnsafeMutableBytes { buffer -> Bool in
-            guard let context = CGContext(
-                data: buffer.baseAddress,
-                width: image.width,
-                height: image.height,
-                bitsPerComponent: 8,
-                bytesPerRow: image.width * 4,
-                space: CGColorSpaceCreateDeviceRGB(),
-                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue
-            ) else { return false }
+            guard
+                let context = CGContext(
+                    data: buffer.baseAddress,
+                    width: image.width,
+                    height: image.height,
+                    bitsPerComponent: 8,
+                    bytesPerRow: image.width * 4,
+                    space: CGColorSpaceCreateDeviceRGB(),
+                    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue
+                )
+            else { return false }
             context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
             return true
         }
@@ -42,11 +46,12 @@ func makeTestCGImage(
     width: Int, height: Int, rgba: [UInt8], space: CGColorSpace = CGColorSpaceCreateDeviceRGB()
 ) throws -> CGImage {
     let provider = try #require(CGDataProvider(data: Data(rgba) as CFData))
-    return try #require(CGImage(
-        width: width, height: height, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: width * 4,
-        space: space, bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.last.rawValue),
-        provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent
-    ))
+    return try #require(
+        CGImage(
+            width: width, height: height, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: width * 4,
+            space: space, bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.last.rawValue),
+            provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent
+        ))
 }
 
 /// Encodes with ImageIO in the given format.
@@ -116,12 +121,14 @@ struct IndexedPNGEncoderTests {
         }
 
         // Act
-        let fast = try #require(IndexedPNGEncoder.encode(
-            width: width, height: height, palette: palette, pixels: pixels, effort: .fast
-        ))
-        let maximum = try #require(IndexedPNGEncoder.encode(
-            width: width, height: height, palette: palette, pixels: pixels, effort: .maximum
-        ))
+        let fast = try #require(
+            IndexedPNGEncoder.encode(
+                width: width, height: height, palette: palette, pixels: pixels, effort: .fast
+            ))
+        let maximum = try #require(
+            IndexedPNGEncoder.encode(
+                width: width, height: height, palette: palette, pixels: pixels, effort: .maximum
+            ))
 
         // Assert: same pixels out of both, smaller-or-equal file from maximum
         let fastDecoded = try decodeRGBA(fast)
@@ -244,8 +251,8 @@ struct IndexedPNGEncoderTests {
         let decoded = try decodeRGBA(png)
 
         // Assert
-        #expect(decoded.rgba[3] == 0)   // pixel 0 alpha
-        #expect(decoded.rgba[7] == 255) // pixel 1 alpha
+        #expect(decoded.rgba[3] == 0)  // pixel 0 alpha
+        #expect(decoded.rgba[7] == 255)  // pixel 1 alpha
         #expect(decoded.rgba[4] == 200)
         #expect(decoded.rgba[5] == 100)
         #expect(decoded.rgba[6] == 50)
@@ -333,7 +340,10 @@ struct IndexedPNGEncoderTests {
         var rgba = [UInt8](repeating: 0, count: width * height * 4)
         for i in 0..<(width * height) {
             let entry = palette[Int(pixels[i])]
-            rgba[i * 4] = entry.red; rgba[i * 4 + 1] = entry.green; rgba[i * 4 + 2] = entry.blue; rgba[i * 4 + 3] = 255
+            rgba[i * 4] = entry.red
+            rgba[i * 4 + 1] = entry.green
+            rgba[i * 4 + 2] = entry.blue
+            rgba[i * 4 + 3] = 255
         }
         let cgImage = try makeTestCGImage(width: width, height: height, rgba: rgba)
         let imageIOData = try encodeTruecolorPNG(cgImage)

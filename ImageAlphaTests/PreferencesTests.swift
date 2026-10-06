@@ -1,20 +1,26 @@
-import Testing
 import Foundation
+import Testing
+
 @testable import ImageAlpha
 
 /// Serialized because tests swap the injected UserDefaults instance.
 @Suite(.serialized)
 struct PreferencesTests {
 
-    /// Runs `body` with Preferences backed by a throwaway defaults suite.
+    /// Runs `body` with Preferences backed by an empty defaults suite. One
+    /// fixed suite, emptied either side: removePersistentDomain(forName:)
+    /// empties a suite but leaves its plist (and deleting that file doesn't
+    /// stick; cfprefsd writes it back), so a fresh name per test left an empty
+    /// plist behind each time.
     private func withTemporaryDefaults(_ body: () -> Void) {
-        let suiteName = "PreferencesTests-\(UUID().uuidString)"
-        let temporary = UserDefaults(suiteName: suiteName)!
+        let suiteName = "ImageAlphaTests.Preferences"
+        let suite = UserDefaults(suiteName: suiteName)!
+        suite.removePersistentDomain(forName: suiteName)
         let original = Preferences.defaults
-        Preferences.defaults = temporary
+        Preferences.defaults = suite
         defer {
             Preferences.defaults = original
-            temporary.removePersistentDomain(forName: suiteName)
+            suite.removePersistentDomain(forName: suiteName)
         }
         body()
     }

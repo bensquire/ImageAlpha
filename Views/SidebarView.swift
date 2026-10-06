@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct SidebarView: View {
-    @ObservedObject var model: DocumentModel
+    @Bindable var model: DocumentModel
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -16,20 +16,26 @@ struct SidebarView: View {
                 if model.quantizationMode == .colors {
                     headerRow(title: "Colors", value: model.colorsDisplayString)
 
+                    // Labels kept, though hidden: "SwiftUI uses labels for …
+                    // accessibility". /documentation/swiftui/view/labelshidden()
                     HStack(spacing: 4) {
-                        Slider(
-                            value: $model.bitDepthSliderValue,
-                            in: 1...9,
-                            step: 1
-                        )
+                        Slider(value: $model.bitDepthSliderValue, in: 1...9, step: 1) {
+                            Text("Colors")
+                        }
+                        .labelsHidden()
+                        .accessibilityValue("\(model.colorsDisplayString) colors")
 
-                        Stepper("", value: $model.numberOfColors, in: 2...257)
+                        Stepper("Colors", value: $model.numberOfColors, in: 2...257)
                             .labelsHidden()
                     }
                 } else {
                     headerRow(title: "Quality", value: "\(model.targetQuality)%")
 
-                    Slider(value: targetQualityBinding, in: 0...100, step: 1)
+                    Slider(value: targetQualityBinding, in: 0...100, step: 1) {
+                        Text("Quality")
+                    }
+                    .labelsHidden()
+                    .accessibilityValue("\(model.targetQuality)%")
 
                     Text("Palette: \(model.colorsDisplayString) colors")
                         .font(.caption)

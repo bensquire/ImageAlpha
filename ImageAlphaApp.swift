@@ -23,6 +23,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         true
     }
 
+    func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool {
+        true
+    }
+
     // MARK: - Menu Construction
 
     private func buildMainMenu() -> NSMenu {
@@ -53,12 +57,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         mainMenu.addItem(fileMenuItem)
         let fileMenu = NSMenu(title: "File")
         fileMenuItem.submenu = fileMenu
+        fileMenu.addItem(withTitle: "New", action: #selector(NSDocumentController.newDocument(_:)), keyEquivalent: "n")
         fileMenu.addItem(withTitle: "Open…", action: #selector(NSDocumentController.openDocument(_:)), keyEquivalent: "o")
-        let recentItem = NSMenuItem(title: "Open Recent", action: nil, keyEquivalent: "")
-        let recentMenu = NSMenu(title: "Open Recent")
-        recentMenu.addItem(withTitle: "Clear Menu", action: #selector(NSDocumentController.clearRecentDocuments(_:)), keyEquivalent: "")
-        recentItem.submenu = recentMenu
-        fileMenu.addItem(recentItem)
+        // No Open Recent here: AppKit inserts its own after Open…, and a
+        // hand-built one showed up as a second copy (checked in the running app).
         fileMenu.addItem(.separator())
         fileMenu.addItem(withTitle: "Close", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
         fileMenu.addItem(withTitle: "Save…", action: #selector(NSDocument.save(_:)), keyEquivalent: "s")
@@ -76,7 +78,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         redo.keyEquivalentModifierMask = [.command, .shift]
         editMenu.addItem(.separator())
         editMenu.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
-        editMenu.addItem(withTitle: "Copy", action: Selector(("copy:")), keyEquivalent: "c")
+        editMenu.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
         editMenu.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
         editMenu.addItem(withTitle: "Delete", action: #selector(NSText.delete(_:)), keyEquivalent: "")
         editMenu.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
@@ -132,6 +134,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         windowMenuItem.submenu = windowMenu
         windowMenu.addItem(withTitle: "Minimize", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
         windowMenu.addItem(withTitle: "Zoom", action: #selector(NSWindow.performZoom(_:)), keyEquivalent: "")
+        windowMenu.addItem(.separator())
+        windowMenu.addItem(withTitle: "Bring All to Front", action: #selector(NSApplication.arrangeInFront(_:)), keyEquivalent: "")
+        // AppKit adds the window list here, and Enter Full Screen and the tab
+        // items to the View menu, by itself (checked in the running app).
         NSApp.windowsMenu = windowMenu
 
         // Help menu
@@ -139,25 +145,38 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         mainMenu.addItem(helpMenuItem)
         let helpMenu = NSMenu(title: "Help")
         helpMenuItem.submenu = helpMenu
-        helpMenu.addItem(withTitle: "ImageAlpha Help", action: #selector(NSApplication.showHelp(_:)), keyEquivalent: "?")
+        helpMenu.addItem(withTitle: "ImageAlpha Help", action: #selector(openHelpPage(_:)), keyEquivalent: "?")
         NSApp.helpMenu = helpMenu
 
         return mainMenu
+    }
+
+    // MARK: - Help
+
+    /// There's no help book for showHelp(_:) to open (it needs
+    /// CFBundleHelpBookName; /documentation/appkit/nsapplication/showhelp(_:)),
+    /// so Help opens the project's page, whose README explains the app.
+    private static let helpURL = URL(string: "https://github.com/bensquire/ImageAlpha")!
+
+    @objc func openHelpPage(_ sender: Any?) {
+        NSWorkspace.shared.open(Self.helpURL)
     }
 
     // MARK: - View Actions
 
     @objc func zoomInAction(_ sender: Any?) {
         guard let doc = NSDocumentController.shared.currentDocument as? ImageAlphaDocument,
-              let wc = doc.windowControllers.first,
-              let hostingView = wc.window?.contentView else { return }
+            let wc = doc.windowControllers.first,
+            let hostingView = wc.window?.contentView
+        else { return }
         findCanvasNSView(in: hostingView)?.zoomIn(sender)
     }
 
     @objc func zoomOutAction(_ sender: Any?) {
         guard let doc = NSDocumentController.shared.currentDocument as? ImageAlphaDocument,
-              let wc = doc.windowControllers.first,
-              let hostingView = wc.window?.contentView else { return }
+            let wc = doc.windowControllers.first,
+            let hostingView = wc.window?.contentView
+        else { return }
         findCanvasNSView(in: hostingView)?.zoomOut(sender)
     }
 
@@ -220,8 +239,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             tag = -1
         }
         if let toolsMenu = NSApp.mainMenu?.item(withTitle: "Tools")?.submenu,
-           let ditherItem = toolsMenu.item(withTitle: "Dithering"),
-           let ditherMenu = ditherItem.submenu {
+            let ditherItem = toolsMenu.item(withTitle: "Dithering"),
+            let ditherMenu = ditherItem.submenu
+        {
             selectMenuItem(withTag: tag, in: ditherMenu)
         }
     }

@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct StatusBarView: View {
-    @ObservedObject var model: DocumentModel
+    var model: DocumentModel
 
     var body: some View {
         HStack(spacing: 8) {

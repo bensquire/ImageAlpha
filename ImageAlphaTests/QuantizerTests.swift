@@ -1,7 +1,8 @@
-import Testing
 import AppKit
 import CoreGraphics
 import ImageIO
+import Testing
+
 @testable import ImageAlpha
 
 /// End-to-end tests: source pixels → libimagequant → indexed PNG → decode.
@@ -14,7 +15,9 @@ struct QuantizerTests {
         var rgba = [UInt8](repeating: 0, count: width * height * 4)
         for i in 0..<(width * height) {
             let color = colors[i % colors.count]
-            rgba[i * 4] = color[0]; rgba[i * 4 + 1] = color[1]; rgba[i * 4 + 2] = color[2]
+            rgba[i * 4] = color[0]
+            rgba[i * 4 + 1] = color[1]
+            rgba[i * 4 + 2] = color[2]
             rgba[i * 4 + 3] = color.count > 3 ? color[3] : 255
         }
         return try makeTestCGImage(width: width, height: height, rgba: rgba)
@@ -27,7 +30,10 @@ struct QuantizerTests {
         for y in 0..<height {
             for x in 0..<width {
                 let i = (y * width + x) * 4
-                rgba[i] = UInt8(x * 4); rgba[i + 1] = UInt8(y * 4); rgba[i + 2] = UInt8((x + y) * 2); rgba[i + 3] = 255
+                rgba[i] = UInt8(x * 4)
+                rgba[i + 1] = UInt8(y * 4)
+                rgba[i + 2] = UInt8((x + y) * 2)
+                rgba[i + 3] = 255
             }
         }
         return try makeTestCGImage(width: width, height: height, rgba: rgba)
@@ -118,7 +124,8 @@ struct QuantizerTests {
         for y in 0..<height {
             for x in (width / 2)..<width {
                 let i = (y * width + x) * 4
-                rgba[i] = 255; rgba[i + 3] = 255
+                rgba[i] = 255
+                rgba[i + 3] = 255
             }
         }
         let image = try makeTestCGImage(width: width, height: height, rgba: rgba)
@@ -187,8 +194,9 @@ struct QuantizerTests {
 
         // Assert
         let entry = try #require(result.bitmap?.palette.first)
-        #expect(abs(Int(entry.red) - 200) <= 2 && abs(Int(entry.green) - 100) <= 2 && abs(Int(entry.blue) - 50) <= 2,
-                "expected ≈(200, 100, 50), got \(entry)")
+        #expect(
+            abs(Int(entry.red) - 200) <= 2 && abs(Int(entry.green) - 100) <= 2 && abs(Int(entry.blue) - 50) <= 2,
+            "expected ≈(200, 100, 50), got \(entry)")
     }
 
     @Test func displayImageIsTaggedSRGB() async throws {

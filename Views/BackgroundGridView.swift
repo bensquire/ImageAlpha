@@ -1,21 +1,28 @@
 import SwiftUI
 
 struct BackgroundGridView: View {
-    @ObservedObject var model: DocumentModel
+    var model: DocumentModel
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 4), count: 4)
 
     var body: some View {
         LazyVGrid(columns: columns, spacing: 4) {
             ForEach(BackgroundStyle.allBackgrounds) { style in
-                BackgroundThumbnailView(
-                    style: style,
-                    image: model.quantizedImage ?? model.sourceImage,
-                    isSelected: model.selectedBackground == style
-                )
-                .onTapGesture {
+                let isSelected = model.selectedBackground == style
+                // A button, not a tap gesture, so the keyboard and VoiceOver
+                // reach it. WWDC24 "Catch up on accessibility in SwiftUI", 4:22
+                Button {
                     model.selectedBackground = style
+                } label: {
+                    BackgroundThumbnailView(
+                        style: style,
+                        image: model.quantizedImage ?? model.sourceImage,
+                        isSelected: isSelected
+                    )
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel(style.accessibilityName)
+                .accessibilityAddTraits(isSelected ? .isSelected : [])
             }
         }
     }
@@ -32,7 +39,7 @@ struct BackgroundThumbnailView: View {
             if let image = image {
                 Image(nsImage: image)
                     .resizable()
-                    .aspectRatio(contentMode: .fit)
+                    .scaledToFit()
                     .padding(2)
             }
         }
@@ -52,9 +59,8 @@ struct BackgroundThumbnailView: View {
             CheckerboardSwiftUIView()
         case .color(let r, let g, let b):
             Color(nsColor: NSColor(srgbRed: r, green: g, blue: b, alpha: 1))
-        case .texture(let name, let ext):
-            if let path = Bundle.main.path(forResource: "textures/\(name)", ofType: ext),
-               let nsImage = NSImage(contentsOfFile: path) {
+        case .texture:
+            if let nsImage = style.textureImage {
                 Image(nsImage: nsImage)
                     .resizable()
             } else {

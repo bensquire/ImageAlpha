@@ -1,5 +1,6 @@
-import Testing
 import Foundation
+import Testing
+
 @testable import ImageAlpha
 
 struct DocumentModelTests {
@@ -19,6 +20,37 @@ struct DocumentModelTests {
         // Assert
         #expect(model.sourceURL == good)
         #expect(model.sourceImage != nil)
+    }
+
+    @MainActor @Test func openingAnImageLeavesTheDocumentUnedited() async throws {
+        // Arrange
+        let model = DocumentModel()
+        var edits = 0
+
+        // Act: as ImageAlphaDocument does: read, then make its window controllers
+        try model.loadImage(from: writeTestPNG(named: "image.png"))
+        model.didChangeParameters = { edits += 1 }
+        try await Task.sleep(for: .milliseconds(200))
+
+        // Assert
+        #expect(edits == 0)
+    }
+
+    @MainActor @Test func aBurstOfParameterChangesMarksTheDocumentEditedOnce() async throws {
+        // Arrange
+        let model = DocumentModel()
+        try model.loadImage(from: writeTestPNG(named: "image.png"))
+        var edits = 0
+        model.didChangeParameters = { edits += 1 }
+
+        // Act: as a slider being scrubbed
+        model.numberOfColors = 128
+        model.numberOfColors = 64
+        model.numberOfColors = 32
+        try await Task.sleep(for: .milliseconds(200))
+
+        // Assert
+        #expect(edits == 1)
     }
 
     // MARK: - bitDepthSliderValue getter
@@ -207,7 +239,8 @@ struct DocumentModelTests {
             quantizedSize: 5000,
             sourceSize: 10000,
             sourceColorCount: 50000,
-            colorsDisplay: "256"
+            colorsDisplay: "256",
+            locale: Locale(identifier: "en_US")
         )
 
         // Assert
@@ -218,6 +251,21 @@ struct DocumentModelTests {
         #expect(result.contains("256 colors"))
         #expect(result.contains("5,000 bytes"))
         #expect(result.contains("50% smaller"))
+    }
+
+    @Test func formatStatusGroupsDigitsTheLocalesWay() {
+        // Act
+        let result = DocumentModel.formatStatus(
+            quantizedSize: 5000,
+            sourceSize: 10000,
+            sourceColorCount: 50000,
+            colorsDisplay: "256",
+            locale: Locale(identifier: "de_DE")
+        )
+
+        // Assert
+        #expect(result.contains("50.000 colors"))
+        #expect(result.contains("5.000 bytes"))
     }
 
     @Test func formatStatusShowsBiggerWhenQuantizedIsLarger() {

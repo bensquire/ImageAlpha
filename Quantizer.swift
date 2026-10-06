@@ -1,5 +1,5 @@
-import AppKit
 import Accelerate
+import AppKit
 import CoreGraphics
 
 struct QuantizationOptions: Equatable {
@@ -116,15 +116,17 @@ actor Quantizer {
         let indices = [UInt8](UnsafeBufferPointer(start: remapped, count: pixelCount))
         let bitmap = IndexedBitmap(width: width, height: height, palette: paletteEntries, pixels: indices)
 
-        // Encode a real indexed PNG (PLTE + tRNS); ImageIO can only write
-        // truecolor, which would forfeit most of the size reduction.
+        // Encode a real indexed PNG (PLTE + tRNS) by hand; see IndexedPNGEncoder
+        // for why ImageIO isn't used.
         guard let pngData = IndexedPNGEncoder.encode(bitmap) else {
             throw QuantizationError.failedToCreatePNG
         }
 
-        guard let nsImage = Self.makeDisplayImage(
-            palette: paletteEntries, indices: indices, width: width, height: height
-        ) else {
+        guard
+            let nsImage = Self.makeDisplayImage(
+                palette: paletteEntries, indices: indices, width: width, height: height
+            )
+        else {
             throw QuantizationError.failedToCreatePNG
         }
 
@@ -146,12 +148,14 @@ actor Quantizer {
     /// sRGB, not device RGB, which is "not recommended when color preservation
     /// is important". /documentation/coregraphics/cgcolorspacecreatedevicergb()
     private static func readStraightRGBA(_ cgImage: CGImage, into destination: UnsafeMutableRawPointer) -> Bool {
-        guard var format = vImage_CGImageFormat(
-                  bitsPerComponent: 8,
-                  bitsPerPixel: 32,
-                  colorSpace: srgb,
-                  bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.last.rawValue | CGBitmapInfo.byteOrder32Big.rawValue)
-              ) else {
+        guard
+            var format = vImage_CGImageFormat(
+                bitsPerComponent: 8,
+                bitsPerPixel: 32,
+                colorSpace: srgb,
+                bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.last.rawValue | CGBitmapInfo.byteOrder32Big.rawValue)
+            )
+        else {
             return false
         }
         var buffer = vImage_Buffer(
@@ -194,19 +198,20 @@ actor Quantizer {
 
         // sRGB, like the palette it shows, so the preview matches the saved file.
         guard let dataProvider = CGDataProvider(data: Data(outputPixels) as CFData),
-              let outputCGImage = CGImage(
-                  width: width,
-                  height: height,
-                  bitsPerComponent: 8,
-                  bitsPerPixel: 32,
-                  bytesPerRow: width * 4,
-                  space: srgb,
-                  bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.last.rawValue),
-                  provider: dataProvider,
-                  decode: nil,
-                  shouldInterpolate: false,
-                  intent: .defaultIntent
-              ) else {
+            let outputCGImage = CGImage(
+                width: width,
+                height: height,
+                bitsPerComponent: 8,
+                bitsPerPixel: 32,
+                bytesPerRow: width * 4,
+                space: srgb,
+                bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.last.rawValue),
+                provider: dataProvider,
+                decode: nil,
+                shouldInterpolate: false,
+                intent: .defaultIntent
+            )
+        else {
             return nil
         }
 
