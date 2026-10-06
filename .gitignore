@@ -6,4 +6,8 @@ DerivedData
 *.xcuserstate
 xcuserdata/
 .idea/
-.claude/
+.claude/*
+!.claude/skills/
+!.claude/rules/
+!.claude/hooks/
+!.claude/settings.json

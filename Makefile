@@ -7,7 +7,7 @@ DEVELOPMENT_TEAM ?=
 APP_PATH = $(BUILD_DIR)/ImageAlpha.app
 DMG_PATH = $(BUILD_DIR)/ImageAlpha-v$(VERSION).dmg
 
-.PHONY: build debug release archive clean pngquant sign notarize dmg publish test lint
+.PHONY: build debug release archive clean pngquant sign notarize dmg publish test lint format
 
 build: debug
 
@@ -69,6 +69,9 @@ publish: dmg notarize
 
 lint:
 	swiftlint lint --strict
+
+format:
+	xcrun swift-format format -i --configuration .swift-format *.swift Views/*.swift ImageAlphaTests/*.swift
 
 test: pngquant
 	xcodebuild -project $(PROJECT) -scheme $(SCHEME) -configuration Debug \

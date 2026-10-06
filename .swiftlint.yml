@@ -28,5 +28,9 @@ function_body_length:
   warning: 100
   error: 150
 
+# swift-format (.swift-format) is the formatting authority; a rule it decides
+# differently is disabled here so the two never disagree.
 disabled_rules:
   - trailing_comma
+  # swift-format puts the brace after a wrapped condition on its own line.
+  - opening_brace
