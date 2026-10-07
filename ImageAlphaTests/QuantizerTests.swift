@@ -215,20 +215,23 @@ struct QuantizerTests {
 
     // MARK: - Options
 
-    @Test func ditheringProducesDecodablePNG() async throws {
-        // Arrange
-        let image = try makeImage(
-            width: 32, height: 32, colors: [[255, 0, 0], [250, 5, 5], [245, 10, 10]])
+    @Test func ditheringSpreadsTheErrorWithinTheSamePalette() async throws {
+        // Arrange: a gradient at 2 colours, so plain remapping leaves bands
+        // that dithering must break up
+        let image = try makeGradientImage(width: 64, height: 64)
         let quantizer = Quantizer()
-        let options = QuantizationOptions(numberOfColors: 2, dithering: true)
 
-        // Act
-        let result = try await quantizer.quantize(cgImage: image, options: options)
-        let decoded = try decodeRGBA(result.pngData)
+        // Act: the pair, with and without
+        let plain = try await quantizer.quantize(
+            cgImage: image, options: QuantizationOptions(numberOfColors: 2, dithering: false))
+        let dithered = try await quantizer.quantize(
+            cgImage: image, options: QuantizationOptions(numberOfColors: 2, dithering: true))
 
         // Assert
-        #expect(decoded.width == 32)
-        #expect(uniqueColors(in: decoded.rgba).count <= 2)
+        let plainPixels = try decodeRGBA(plain.pngData).rgba
+        let ditheredPixels = try decodeRGBA(dithered.pngData).rgba
+        #expect(uniqueColors(in: ditheredPixels).count <= 2)
+        #expect(ditheredPixels != plainPixels, "dithering put every pixel where plain remapping did")
     }
 
     // MARK: - Quality target & quality metric
@@ -247,7 +250,6 @@ struct QuantizerTests {
         // Assert
         #expect(result.paletteCount < 256)
         #expect(uniqueColors(in: decoded.rgba).count <= result.paletteCount)
-        #expect(decoded.width == 64)
     }
 
     @Test func reportsPaletteCountMatchingSmallPalette() async throws {

@@ -1,3 +1,4 @@
+import CoreGraphics
 import Testing
 
 @testable import ImageAlpha
@@ -6,37 +7,17 @@ struct BackgroundStyleTests {
 
     // MARK: - BackgroundStyle.id
 
-    @Test func checkerboardId() {
-        // Arrange
-        let style = BackgroundStyle.checkerboard
-
+    @Test(arguments: [
+        (BackgroundStyle.checkerboard, "checkerboard"),
+        (.color(red: 1, green: 0, blue: 0), "color-1.0-0.0-0.0"),
+        (.texture(name: "brick-wall-128x128", ext: "png"), "texture-brick-wall-128x128.png"),
+    ])
+    func idSpellsOutTheStyle(style: BackgroundStyle, expectedID: String) {
         // Act
         let id = style.id
 
         // Assert
-        #expect(id == "checkerboard")
-    }
-
-    @Test func colorId() {
-        // Arrange
-        let style = BackgroundStyle.color(red: 1, green: 0, blue: 0)
-
-        // Act
-        let id = style.id
-
-        // Assert
-        #expect(id == "color-1.0-0.0-0.0")
-    }
-
-    @Test func textureId() {
-        // Arrange
-        let style = BackgroundStyle.texture(name: "brick-wall-128x128", ext: "png")
-
-        // Act
-        let id = style.id
-
-        // Assert
-        #expect(id == "texture-brick-wall-128x128.png")
+        #expect(id == expectedID)
     }
 
     // MARK: - Accessibility names
@@ -81,12 +62,18 @@ struct BackgroundStyleTests {
 
     // MARK: - allBackgrounds
 
-    @Test func allBackgroundsIsNotEmpty() {
+    @Test func everyTextureInAllBackgroundsShipsInTheBundle() {
+        // Arrange: the test host is the app, so its bundle is the one that ships
+        let textures = BackgroundStyle.allBackgrounds.filter {
+            if case .texture = $0 { true } else { false }
+        }
+
         // Act
-        let all = BackgroundStyle.allBackgrounds
+        let missing = textures.filter { $0.textureImage == nil }.map(\.id)
 
         // Assert
-        #expect(!all.isEmpty)
+        #expect(textures.count == 8)
+        #expect(missing.isEmpty, "not in the bundle: \(missing)")
     }
 
     @Test func allBackgroundsStartsWithCheckerboard() {
@@ -123,19 +110,24 @@ struct BackgroundStyleTests {
         // Arrange
         let bg = ColorBackground(r: 1, g: 0, b: 0)
 
+        // Act
+        let canMove = bg.canMove
+
         // Assert
-        #expect(!bg.canMove)
+        #expect(!canMove)
     }
 
-    @Test func colorBackgroundMakesLayer() {
+    @Test func colorBackgroundFillsItsLayerWithItsColor() throws {
         // Arrange
-        let bg = ColorBackground(r: 0.5, g: 0.5, b: 0.5)
+        let bg = ColorBackground(r: 0.5, g: 0.25, b: 0)
 
         // Act
         let layer = bg.makeLayer()
 
-        // Assert
-        #expect(layer.backgroundColor != nil)
+        // Assert: the sRGB colour it was given, opaque
+        let color = try #require(layer.backgroundColor)
+        #expect(color.components == [0.5, 0.25, 0, 1])
+        #expect(color.colorSpace?.name == CGColorSpace.sRGB)
     }
 
     // MARK: - CheckerboardBackground
@@ -151,35 +143,21 @@ struct BackgroundStyleTests {
         #expect(!canMove)
     }
 
-    @Test func checkerLightIsWhiteInLightMode() {
+    @Test(arguments: [(false, 1.0), (true, 0.30)])
+    func checkerboardLightSquaresFollowTheAppearance(isDark: Bool, white: Double) {
         // Act
-        let white = CheckerboardBackground.checkerLightWhite(isDark: false)
+        let shade = CheckerboardBackground.checkerLightWhite(isDark: isDark)
 
         // Assert
-        #expect(white == 1.0)
+        #expect(shade == CGFloat(white))
     }
 
-    @Test func checkerDarkIsLightGrayInLightMode() {
+    @Test(arguments: [(false, 0.86), (true, 0.24)])
+    func checkerboardDarkSquaresFollowTheAppearance(isDark: Bool, white: Double) {
         // Act
-        let white = CheckerboardBackground.checkerDarkWhite(isDark: false)
+        let shade = CheckerboardBackground.checkerDarkWhite(isDark: isDark)
 
         // Assert
-        #expect(white == 0.86)
-    }
-
-    @Test func checkerLightIsDarkInDarkMode() {
-        // Act
-        let white = CheckerboardBackground.checkerLightWhite(isDark: true)
-
-        // Assert
-        #expect(white == 0.30)
-    }
-
-    @Test func checkerDarkIsDarkerInDarkMode() {
-        // Act
-        let white = CheckerboardBackground.checkerDarkWhite(isDark: true)
-
-        // Assert
-        #expect(white == 0.24)
+        #expect(shade == CGFloat(white))
     }
 }

@@ -114,13 +114,16 @@ enum IndexedPNGEncoder {
 
         out.withUnsafeMutableBufferPointer { dst in
             pixels.withUnsafeBufferPointer { src in
+                // Empty only for a zero-row or zero-column image, whose scanlines
+                // are the all-zero filter bytes `out` already holds.
+                guard let dstBase = dst.baseAddress, let srcBase = src.baseAddress else { return }
                 for row in 0..<height {
                     var write = row * (rowBytes + 1)
                     dst[write] = 0  // filter: None
                     write += 1
                     if bitDepth == 8 {
-                        UnsafeMutableRawPointer(dst.baseAddress! + write)
-                            .copyMemory(from: src.baseAddress! + row * width, byteCount: width)
+                        UnsafeMutableRawPointer(dstBase + write)
+                            .copyMemory(from: srcBase + row * width, byteCount: width)
                         continue
                     }
                     var byte: UInt8 = 0
@@ -171,11 +174,11 @@ enum IndexedPNGEncoder {
         var destLen = compressBound(uLong(source.count))
         var dest = Data(count: Int(destLen))
         let status = dest.withUnsafeMutableBytes { destBuf in
-            source.withUnsafeBufferPointer { src in
-                compress2(
-                    destBuf.bindMemory(to: UInt8.self).baseAddress!, &destLen,
-                    src.baseAddress!, uLong(source.count), 9
-                )
+            source.withUnsafeBufferPointer { src -> Int32 in
+                guard let destBase = destBuf.bindMemory(to: UInt8.self).baseAddress,
+                    let srcBase = src.baseAddress
+                else { return Z_BUF_ERROR }
+                return compress2(destBase, &destLen, srcBase, uLong(source.count), 9)
             }
         }
         guard status == Z_OK else { return nil }

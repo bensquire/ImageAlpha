@@ -10,7 +10,7 @@ struct ZoomDisplayTests {
         let display = ImageCanvasNSView.zoomDisplayString(2.0)
 
         // Assert
-        #expect(display == "2\u{00D7}")
+        #expect(display == "2×")
     }
 
     @Test func fractionalZoomShowsOneDecimal() {
@@ -18,7 +18,7 @@ struct ZoomDisplayTests {
         let display = ImageCanvasNSView.zoomDisplayString(1.5)
 
         // Assert
-        #expect(display == "1.5\u{00D7}")
+        #expect(display == "1.5×")
     }
 
     @Test func nearlyWholeZoomRoundsToInteger() {
@@ -26,30 +26,15 @@ struct ZoomDisplayTests {
         let display = ImageCanvasNSView.zoomDisplayString(2.98)
 
         // Assert
-        #expect(display == "3\u{00D7}")
+        #expect(display == "3×")
     }
 
-    @Test func halfZoomShowsHalfFraction() {
+    @Test(arguments: [(0.5, "½×"), (1.0 / 3.0, "⅓×"), (0.25, "¼×")])
+    func zoomBelowOneShowsAFraction(zoom: Double, shown: String) {
         // Act
-        let display = ImageCanvasNSView.zoomDisplayString(0.5)
+        let display = ImageCanvasNSView.zoomDisplayString(CGFloat(zoom))
 
         // Assert
-        #expect(display == "\u{00BD}\u{00D7}")
-    }
-
-    @Test func thirdZoomShowsThirdFraction() {
-        // Act
-        let display = ImageCanvasNSView.zoomDisplayString(1.0 / 3.0)
-
-        // Assert
-        #expect(display == "\u{2153}\u{00D7}")
-    }
-
-    @Test func quarterZoomShowsQuarterFraction() {
-        // Act
-        let display = ImageCanvasNSView.zoomDisplayString(0.25)
-
-        // Assert
-        #expect(display == "\u{00BC}\u{00D7}")
+        #expect(display == shown)
     }
 }

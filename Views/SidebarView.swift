@@ -44,12 +44,10 @@ struct SidebarView: View {
             }
             .disabled(model.sourceImage == nil)
 
-            // Show original toggle
             Toggle("Show original", isOn: $model.showOriginal)
                 .keyboardShortcut(.space, modifiers: [])
                 .disabled(model.sourceImage == nil || model.compareMode)
 
-            // Compare (split view) toggle
             Toggle("Compare", isOn: $model.compareMode)
                 .disabled(model.sourceImage == nil)
 
@@ -59,7 +57,6 @@ struct SidebarView: View {
             Text("Options")
                 .font(.headline)
 
-            // Dithered checkbox
             Toggle("Dithered", isOn: $model.dithering)
                 .disabled(model.sourceImage == nil)
 

@@ -11,7 +11,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillFinishLaunching(_ notification: Notification) {
-        UserDefaults.standard.register(defaults: [Preferences.Key.optimizeWithImageOptim: true])
+        Preferences.registerDefaults()
 
         // Build menu bar early so it's ready before any windows
         NSApp.mainMenu = buildMainMenu()
@@ -176,6 +176,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     /// There's no help book for showHelp(_:) to open (it needs
     /// CFBundleHelpBookName; /documentation/appkit/nsapplication/showhelp(_:)),
     /// so Help opens the project's page, whose README explains the app.
+    // A well-formed literal; URL(string:) returns nil only for malformed text.
+    // swift-format-ignore: NeverForceUnwrap
     private static let helpURL = URL(string: "https://github.com/bensquire/ImageAlpha")!
 
     @objc func openHelpPage(_ sender: Any?) {
@@ -185,19 +187,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - View Actions
 
     @objc func zoomInAction(_ sender: Any?) {
-        guard let doc = NSDocumentController.shared.currentDocument as? ImageAlphaDocument,
-            let wc = doc.windowControllers.first,
-            let hostingView = wc.window?.contentView
-        else { return }
-        findCanvasNSView(in: hostingView)?.zoomIn(sender)
+        currentCanvas()?.zoomIn(sender)
     }
 
     @objc func zoomOutAction(_ sender: Any?) {
+        currentCanvas()?.zoomOut(sender)
+    }
+
+    /// The canvas in the current document's window, if there is one.
+    private func currentCanvas() -> ImageCanvasNSView? {
         guard let doc = NSDocumentController.shared.currentDocument as? ImageAlphaDocument,
-            let wc = doc.windowControllers.first,
-            let hostingView = wc.window?.contentView
-        else { return }
-        findCanvasNSView(in: hostingView)?.zoomOut(sender)
+            let hostingView = doc.windowControllers.first?.window?.contentView
+        else { return nil }
+        return findCanvasNSView(in: hostingView)
     }
 
     private func findCanvasNSView(in view: NSView) -> ImageCanvasNSView? {

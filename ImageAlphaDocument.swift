@@ -5,6 +5,7 @@ class ImageAlphaDocument: NSDocument {
 
     let model = DocumentModel()
     private var optimizeWithImageOptimCheckbox: NSButton?
+    private static let imageOptimBundleID = "net.pornel.ImageOptim"
 
     override class var autosavesInPlace: Bool { false }
 
@@ -56,7 +57,7 @@ class ImageAlphaDocument: NSDocument {
     }
 
     override func prepareSavePanel(_ savePanel: NSSavePanel) -> Bool {
-        guard NSWorkspace.shared.urlForApplication(withBundleIdentifier: "net.pornel.ImageOptim") != nil
+        guard NSWorkspace.shared.urlForApplication(withBundleIdentifier: Self.imageOptimBundleID) != nil
         else {
             return true
         }
@@ -80,6 +81,7 @@ class ImageAlphaDocument: NSDocument {
     ) {
         guard let url = fileURL else {
             // Untitled: NSDocument runs the Save panel, so nothing is overwritten.
+            // /documentation/appkit/nsdocument/save(withdelegate:didsave:contextinfo:)
             super.save(withDelegate: delegate, didSave: didSaveSelector, contextInfo: contextInfo)
             return
         }
@@ -90,7 +92,7 @@ class ImageAlphaDocument: NSDocument {
             "This will replace \"\(url.lastPathComponent)\" with the quantized image. This cannot be undone."
         alert.alertStyle = .warning
         alert.addButton(withTitle: "Overwrite")
-        alert.addButton(withTitle: "Save As\u{2026}")
+        alert.addButton(withTitle: "Save As…")
         alert.addButton(withTitle: "Cancel")
 
         let finish = { (response: NSApplication.ModalResponse) in
@@ -232,7 +234,7 @@ class ImageAlphaDocument: NSDocument {
     }
 
     private func openInImageOptim(url: URL) {
-        guard let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "net.pornel.ImageOptim")
+        guard let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: Self.imageOptimBundleID)
         else { return }
         NSWorkspace.shared.open(
             [url], withApplicationAt: appURL, configuration: NSWorkspace.OpenConfiguration())

@@ -205,9 +205,20 @@ struct ImageCanvasNSViewTests {
         // Assert
         #expect(error == nil)
         #expect(try Data(contentsOf: url) == Data([1, 2, 3]))
-        #expect(
-            view.filePromiseProvider(provider, fileNameForType: UTType.png.identifier) == "dice-quantized.png"
-        )
+    }
+
+    @Test func filePromiseIsNamedWhenTheDragStarts() {
+        // Arrange: the name captured at drag start, not the one the provider would give now
+        let view = ImageCanvasNSView(frame: .zero)
+        view.dragOutProvider = { PromisedPNG(data: Data([9, 9]), fileName: "later.png") }
+        let provider = promise(of: .png, from: view)
+        provider.userInfo = PromisedPNG(data: Data([1, 2, 3]), fileName: "dice-quantized.png")
+
+        // Act
+        let name = view.filePromiseProvider(provider, fileNameForType: UTType.png.identifier)
+
+        // Assert
+        #expect(name == "dice-quantized.png")
     }
 
     @Test func filePromiseNeverReplacesAnExistingFile() async throws {

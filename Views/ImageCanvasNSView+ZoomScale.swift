@@ -16,18 +16,18 @@ extension ImageCanvasNSView {
         if z >= 1.0 {
             let rounded = (z * 10).rounded() / 10
             if rounded == rounded.rounded() {
-                return "\(Int(rounded))\u{00D7}"
+                return "\(Int(rounded))×"
             }
-            return String(format: "%.1f\u{00D7}", rounded)
+            return String(format: "%.1f×", rounded)
         }
-        let fractions = ["\u{00BD}\u{00D7}", "\u{2153}\u{00D7}", "\u{00BC}\u{00D7}"]
+        let fractions = ["½×", "⅓×", "¼×"]
         let idx = min(2, max(0, Int(round(1.0 / z)) - 2))
         return fractions[idx]
     }
 
     // MARK: - Image scale helpers
 
-    private func getScale(of image: NSImage) -> NSSize {
+    private func pixelScale(of image: NSImage) -> NSSize {
         guard let rep = image.representations.first else { return .zero }
         let imageSize = image.size
         guard imageSize.width > 0, imageSize.height > 0 else { return .zero }
@@ -36,7 +36,7 @@ extension ImageCanvasNSView {
             height: CGFloat(rep.pixelsHigh) / imageSize.height)
     }
 
-    private func setScale(_ scale: NSSize, of image: NSImage) {
+    private func setPixelScale(_ scale: NSSize, of image: NSImage) {
         guard let rep = image.representations.first, scale.width > 0, scale.height > 0 else { return }
         image.size = NSSize(
             width: CGFloat(rep.pixelsWide) / scale.width, height: CGFloat(rep.pixelsHigh) / scale.height)
@@ -46,7 +46,6 @@ extension ImageCanvasNSView {
     /// render at identical size.
     func syncImageScale() {
         guard let original = originalImage, let display = displayImage else { return }
-        let scale = getScale(of: original)
-        setScale(scale, of: display)
+        setPixelScale(pixelScale(of: original), of: display)
     }
 }

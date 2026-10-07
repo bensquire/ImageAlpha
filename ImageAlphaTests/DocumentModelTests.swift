@@ -53,161 +53,63 @@ struct DocumentModelTests {
         #expect(edits == 1)
     }
 
-    // MARK: - bitDepthSliderValue getter
+    // MARK: - bitDepthSliderValue
 
-    @Test func sliderValueAt256Colors() async {
+    @Test(arguments: [(256, 8.0), (128, 7.0), (257, 9.0), (2, 1.0), (1, 1.0)])
+    func sliderShowsTheBitDepthOfTheColorCount(colors: Int, sliderValue: Double) async {
         // Arrange
         let model = await DocumentModel()
-        await MainActor.run { model.numberOfColors = 256 }
+        await MainActor.run { model.numberOfColors = colors }
 
         // Act
         let value = await model.bitDepthSliderValue
 
         // Assert
-        #expect(value == 8.0)
+        #expect(value == sliderValue)
     }
 
-    @Test func sliderValueAt128Colors() async {
+    @Test(arguments: [(8.0, 256), (5.0, 32), (9.0, 257), (1.0, 2), (0.0, 2)])
+    func movingTheSliderPicksAColorCount(sliderValue: Double, colors: Int) async {
         // Arrange
         let model = await DocumentModel()
-        await MainActor.run { model.numberOfColors = 128 }
 
         // Act
+        await MainActor.run { model.bitDepthSliderValue = sliderValue }
+
+        // Assert
+        let count = await model.numberOfColors
+        #expect(count == colors)
+    }
+
+    @Test(arguments: 1...9)
+    func sliderReadsBackEveryBitDepthItIsSetTo(bitDepth: Int) async {
+        // Arrange
+        let model = await DocumentModel()
+
+        // Act
+        await MainActor.run { model.bitDepthSliderValue = Double(bitDepth) }
+
+        // Assert
         let value = await model.bitDepthSliderValue
-
-        // Assert
-        #expect(value == 7.0)
-    }
-
-    @Test func sliderValueAbove256Is9() async {
-        // Arrange
-        let model = await DocumentModel()
-        await MainActor.run { model.numberOfColors = 257 }
-
-        // Act
-        let value = await model.bitDepthSliderValue
-
-        // Assert
-        #expect(value == 9.0)
-    }
-
-    @Test func sliderValueAt2ColorsIs1() async {
-        // Arrange
-        let model = await DocumentModel()
-        await MainActor.run { model.numberOfColors = 2 }
-
-        // Act
-        let value = await model.bitDepthSliderValue
-
-        // Assert
-        #expect(value == 1.0)
-    }
-
-    @Test func sliderValueAt1ColorIs1() async {
-        // Arrange
-        let model = await DocumentModel()
-        await MainActor.run { model.numberOfColors = 1 }
-
-        // Act
-        let value = await model.bitDepthSliderValue
-
-        // Assert
-        #expect(value == 1.0)
-    }
-
-    // MARK: - bitDepthSliderValue setter
-
-    @Test func setSliderTo8Gives256Colors() async {
-        // Arrange
-        let model = await DocumentModel()
-
-        // Act
-        await MainActor.run { model.bitDepthSliderValue = 8.0 }
-        let colors = await model.numberOfColors
-
-        // Assert
-        #expect(colors == 256)
-    }
-
-    @Test func setSliderTo5Gives32Colors() async {
-        // Arrange
-        let model = await DocumentModel()
-
-        // Act
-        await MainActor.run { model.bitDepthSliderValue = 5.0 }
-        let colors = await model.numberOfColors
-
-        // Assert
-        #expect(colors == 32)
-    }
-
-    @Test func setSliderAbove8Gives257() async {
-        // Arrange
-        let model = await DocumentModel()
-
-        // Act
-        await MainActor.run { model.bitDepthSliderValue = 9.0 }
-        let colors = await model.numberOfColors
-
-        // Assert
-        #expect(colors == 257)
-    }
-
-    @Test func setSliderTo1Gives2Colors() async {
-        // Arrange
-        let model = await DocumentModel()
-
-        // Act
-        await MainActor.run { model.bitDepthSliderValue = 1.0 }
-        let colors = await model.numberOfColors
-
-        // Assert
-        #expect(colors == 2)
-    }
-
-    @Test func setSliderTo0Gives2Colors() async {
-        // Arrange
-        let model = await DocumentModel()
-
-        // Act
-        await MainActor.run { model.bitDepthSliderValue = 0.0 }
-        let colors = await model.numberOfColors
-
-        // Assert
-        #expect(colors == 2)
-    }
-
-    // MARK: - bitDepthSliderValue roundtrips
-
-    @Test func sliderRoundtripsForAllBitDepths() async {
-        // Arrange
-        let model = await DocumentModel()
-
-        for bitDepth in 1...9 {
-            // Act
-            await MainActor.run { model.bitDepthSliderValue = Double(bitDepth) }
-            let got = await model.bitDepthSliderValue
-
-            // Assert
-            #expect(got == Double(bitDepth))
-        }
+        #expect(value == Double(bitDepth))
     }
 
     // MARK: - colorsDisplayString
 
-    @Test func colorsDisplayStringAt256() async {
+    @Test(arguments: [256, 2])
+    func colorsDisplayStringShowsTheColorCount(colors: Int) async {
         // Arrange
         let model = await DocumentModel()
-        await MainActor.run { model.numberOfColors = 256 }
+        await MainActor.run { model.numberOfColors = colors }
 
         // Act
         let display = await model.colorsDisplayString
 
         // Assert
-        #expect(display == "256")
+        #expect(display == "\(colors)")
     }
 
-    @Test func colorsDisplayStringAbove256() async {
+    @Test func colorsAbove256DisplayAs24Bit() async {
         // Arrange
         let model = await DocumentModel()
         await MainActor.run { model.numberOfColors = 257 }
@@ -217,18 +119,6 @@ struct DocumentModelTests {
 
         // Assert
         #expect(display == "24-bit")
-    }
-
-    @Test func colorsDisplayStringAt2() async {
-        // Arrange
-        let model = await DocumentModel()
-        await MainActor.run { model.numberOfColors = 2 }
-
-        // Act
-        let display = await model.colorsDisplayString
-
-        // Assert
-        #expect(display == "2")
     }
 
     // MARK: - formatStatus
@@ -293,7 +183,7 @@ struct DocumentModelTests {
         // Assert
         #expect(result.contains("Original:"))
         #expect(result.contains("10,000 bytes"))
-        #expect(result.contains("Quantized: ..."))
+        #expect(result.contains("Quantized: …"))
     }
 
     @Test func formatStatusWithoutSourceSize() {

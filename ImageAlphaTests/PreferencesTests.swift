@@ -12,9 +12,9 @@ struct PreferencesTests {
     /// empties a suite but leaves its plist (and deleting that file doesn't
     /// stick; cfprefsd writes it back), so a fresh name per test left an empty
     /// plist behind each time.
-    private func withTemporaryDefaults(_ body: () -> Void) {
+    private func withTemporaryDefaults(_ body: () -> Void) throws {
         let suiteName = "ImageAlphaTests.Preferences"
-        let suite = UserDefaults(suiteName: suiteName)!
+        let suite = try #require(UserDefaults(suiteName: suiteName))
         suite.removePersistentDomain(forName: suiteName)
         let original = Preferences.defaults
         Preferences.defaults = suite
@@ -27,8 +27,8 @@ struct PreferencesTests {
 
     // MARK: - Speed
 
-    @Test func speedDefaultsTo3WhenUnset() {
-        withTemporaryDefaults {
+    @Test func speedDefaultsTo3WhenUnset() throws {
+        try withTemporaryDefaults {
             // Act
             let speed = Preferences.speed
 
@@ -37,8 +37,8 @@ struct PreferencesTests {
         }
     }
 
-    @Test func speedRoundTripsValidValue() {
-        withTemporaryDefaults {
+    @Test func speedRoundTripsValidValue() throws {
+        try withTemporaryDefaults {
             // Arrange
             Preferences.speed = 10
 
@@ -50,8 +50,8 @@ struct PreferencesTests {
         }
     }
 
-    @Test func speedFallsBackToDefaultForOutOfRangeStoredValue() {
-        withTemporaryDefaults {
+    @Test func speedFallsBackToDefaultForOutOfRangeStoredValue() throws {
+        try withTemporaryDefaults {
             // Arrange
             Preferences.defaults.set(99, forKey: Preferences.Key.speed)
 
@@ -65,8 +65,8 @@ struct PreferencesTests {
 
     // MARK: - Dithering tri-state
 
-    @Test func ditheringIsNilWhenUnset() {
-        withTemporaryDefaults {
+    @Test func ditheringIsNilWhenUnset() throws {
+        try withTemporaryDefaults {
             // Act
             let dithering = Preferences.dithering
 
@@ -75,19 +75,22 @@ struct PreferencesTests {
         }
     }
 
-    @Test func ditheringRoundTripsTrueAndFalse() {
-        withTemporaryDefaults {
-            // Arrange & Act & Assert
-            Preferences.dithering = true
-            #expect(Preferences.dithering == true)
+    @Test(arguments: [true, false])
+    func ditheringRoundTrips(value: Bool) throws {
+        try withTemporaryDefaults {
+            // Arrange
+            Preferences.dithering = value
 
-            Preferences.dithering = false
-            #expect(Preferences.dithering == false)
+            // Act
+            let dithering = Preferences.dithering
+
+            // Assert
+            #expect(dithering == value)
         }
     }
 
-    @Test func ditheringSetToNilClearsStoredValue() {
-        withTemporaryDefaults {
+    @Test func ditheringSetToNilClearsStoredValue() throws {
+        try withTemporaryDefaults {
             // Arrange
             Preferences.dithering = true
 
@@ -101,16 +104,17 @@ struct PreferencesTests {
 
     // MARK: - ImageOptim
 
-    @Test func optimizeWithImageOptimRoundTrips() {
-        withTemporaryDefaults {
+    @Test(arguments: [true, false])
+    func optimizeWithImageOptimRoundTrips(value: Bool) throws {
+        try withTemporaryDefaults {
             // Arrange
-            Preferences.optimizeWithImageOptim = true
+            Preferences.optimizeWithImageOptim = value
 
-            // Act & Assert
-            #expect(Preferences.optimizeWithImageOptim)
+            // Act
+            let optimize = Preferences.optimizeWithImageOptim
 
-            Preferences.optimizeWithImageOptim = false
-            #expect(!Preferences.optimizeWithImageOptim)
+            // Assert
+            #expect(optimize == value)
         }
     }
 }

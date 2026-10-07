@@ -51,7 +51,8 @@ enum BackgroundStyle: Hashable, Identifiable {
     }
 
     /// Read from the bundle once per texture, since the sidebar's thumbnails
-    /// ask on every redraw. NSCache is safe to use from any thread.
+    /// ask on every redraw. NSCache needs no lock across threads.
+    /// /documentation/foundation/nscache
     private static let textureCache = NSCache<NSString, NSImage>()
 
     /// The texture's image; nil for other styles or a missing file. The

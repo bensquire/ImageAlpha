@@ -20,25 +20,23 @@ struct ImageCanvasView: NSViewRepresentable {
     func updateNSView(_ nsView: ImageCanvasNSView, context: Context) {
         let coordinator = context.coordinator
 
-        // Update background if changed
         if coordinator.lastBackground != model.selectedBackground {
             coordinator.lastBackground = model.selectedBackground
             nsView.checkerboardStyle = model.selectedBackground
         }
 
-        // Update show original state
         if nsView.showOriginal != model.showOriginal {
             nsView.showOriginal = model.showOriginal
         }
 
-        // Update compare (split) mode
+        // Compare keeps the divider where the user left it.
         let wantSplit: CGFloat? = model.compareMode ? (nsView.splitPosition ?? 0.5) : nil
-        if (nsView.splitPosition == nil) != (wantSplit == nil) || nsView.splitPosition != wantSplit {
+        if nsView.splitPosition != wantSplit {
             nsView.splitPosition = wantSplit
         }
 
-        // Update display image (skip if quantizedImage is the same object as sourceImage,
-        // e.g. when numberOfColors > 256 — avoids scale/size conflicts)
+        // Skipped when quantizedImage is sourceImage (24-bit passthrough), to
+        // avoid scale/size conflicts.
         if !model.showOriginal,
             let qi = model.quantizedImage,
             qi !== model.sourceImage,
@@ -47,7 +45,6 @@ struct ImageCanvasView: NSViewRepresentable {
             nsView.displayImage = qi
         }
 
-        // Update original image
         if coordinator.lastSourceImage !== model.sourceImage {
             coordinator.lastSourceImage = model.sourceImage
             nsView.originalImage = model.sourceImage

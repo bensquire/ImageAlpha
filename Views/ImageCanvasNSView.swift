@@ -14,10 +14,10 @@ class ImageCanvasNSView: NSView {
     /// What a drag out of the canvas carries; nil when there's nothing to drag.
     var dragOutProvider: (() -> PromisedPNG?)?
 
-    var imageLayer: CALayer!
-    private var backgroundLayer: CALayer!
-    private var topShadow: CAGradientLayer!
-    private var leftShadow: CAGradientLayer!
+    let imageLayer = CALayer()
+    private var backgroundLayer = CALayer()
+    private let topShadow = CAGradientLayer()
+    private let leftShadow = CAGradientLayer()
 
     var mouseIsDown = false {
         didSet { refreshCursor() }
@@ -106,14 +106,14 @@ class ImageCanvasNSView: NSView {
 
     var smooth: Bool = true {
         didSet {
-            imageLayer?.magnificationFilter = smooth ? .linear : .nearest
-            imageLayer?.minificationFilter = smooth ? .linear : .nearest
+            imageLayer.magnificationFilter = smooth ? .linear : .nearest
+            imageLayer.minificationFilter = smooth ? .linear : .nearest
         }
     }
 
     var imageFade: CGFloat = 1.0 {
         didSet {
-            imageLayer?.opacity = Float(imageFade)
+            imageLayer.opacity = Float(imageFade)
         }
     }
 
@@ -134,12 +134,10 @@ class ImageCanvasNSView: NSView {
         self.layer = hostLayer
         self.wantsLayer = true
 
-        backgroundLayer = CALayer()
         backgroundLayer.frame = bounds
         backgroundLayer.autoresizingMask = [.layerWidthSizable, .layerHeightSizable]
         backgroundLayer.backgroundColor = CGColor(gray: 0.5, alpha: 1)
 
-        imageLayer = CALayer()
         imageLayer.magnificationFilter = .linear
         imageLayer.minificationFilter = .linear
         imageLayer.contentsGravity = .resize
@@ -174,23 +172,19 @@ class ImageCanvasNSView: NSView {
         let stop2 = CGColor(gray: 0, alpha: 0.11)
         let stop3 = CGColor(gray: 0, alpha: 0.3)
 
-        let top = CAGradientLayer()
-        top.colors = [stop0, stop1, stop2, stop3]
-        top.autoresizingMask = [.layerWidthSizable, .layerMinYMargin]
-        top.frame = CGRect(
+        topShadow.colors = [stop0, stop1, stop2, stop3]
+        topShadow.autoresizingMask = [.layerWidthSizable, .layerMinYMargin]
+        topShadow.frame = CGRect(
             x: 0, y: hostBounds.height - shadowHeight, width: hostBounds.width, height: shadowHeight)
-        topShadow = top
 
-        let left = CAGradientLayer()
-        left.colors = [stop3, stop2, stop1, stop0]
-        left.startPoint = CGPoint(x: 0, y: 0)
-        left.endPoint = CGPoint(x: 1, y: 0)
-        left.autoresizingMask = [.layerHeightSizable, .layerMaxXMargin]
-        left.frame = CGRect(x: 0, y: 0, width: shadowWidth, height: hostBounds.height)
-        leftShadow = left
+        leftShadow.colors = [stop3, stop2, stop1, stop0]
+        leftShadow.startPoint = CGPoint(x: 0, y: 0)
+        leftShadow.endPoint = CGPoint(x: 1, y: 0)
+        leftShadow.autoresizingMask = [.layerHeightSizable, .layerMaxXMargin]
+        leftShadow.frame = CGRect(x: 0, y: 0, width: shadowWidth, height: hostBounds.height)
 
-        hostLayer.addSublayer(left)
-        hostLayer.addSublayer(top)
+        hostLayer.addSublayer(leftShadow)
+        hostLayer.addSublayer(topShadow)
     }
 
     // MARK: - Frame
@@ -237,10 +231,10 @@ class ImageCanvasNSView: NSView {
         currentZoom = clamped
         limitImageOffset()
         if clamped == 1.0 {
-            imageLayer?.magnificationFilter = .nearest
+            imageLayer.magnificationFilter = .nearest
         } else if smooth {
-            imageLayer?.magnificationFilter = .linear
-            imageLayer?.minificationFilter = .linear
+            imageLayer.magnificationFilter = .linear
+            imageLayer.minificationFilter = .linear
         }
         repositionImageLayer()
     }
@@ -293,7 +287,6 @@ class ImageCanvasNSView: NSView {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         if let pos = splitPosition {
-            // Create original layer if needed
             if originalLayer == nil {
                 let oLayer = CALayer()
                 oLayer.magnificationFilter = .linear
@@ -315,15 +308,7 @@ class ImageCanvasNSView: NSView {
 
             originalLayer?.isHidden = false
             splitDividerLayer?.isHidden = false
-
-            // Clip: original layer shows left half, imageLayer clipped to right half
-            let viewWidth = bounds.width
-            let dividerX = viewWidth * pos
-            originalLayer?.frame = imageLayer.frame
-            applySplitMasks(dividerX: dividerX, imageFrame: imageLayer.frame)
-
-            // Divider line
-            splitDividerLayer?.frame = CGRect(x: dividerX - 2, y: 0, width: 4, height: bounds.height)
+            layOutSplit(at: pos, imageFrame: imageLayer.frame)
         } else {
             originalLayer?.isHidden = true
             splitDividerLayer?.isHidden = true
@@ -331,6 +316,15 @@ class ImageCanvasNSView: NSView {
             imageLayer.mask = nil
         }
         CATransaction.commit()
+    }
+
+    /// The original shows left of the divider and the result right of it,
+    /// both over the same frame.
+    private func layOutSplit(at position: CGFloat, imageFrame: CGRect) {
+        let dividerX = bounds.width * position
+        originalLayer?.frame = imageFrame
+        applySplitMasks(dividerX: dividerX, imageFrame: imageFrame)
+        splitDividerLayer?.frame = CGRect(x: dividerX - 2, y: 0, width: 4, height: bounds.height)
     }
 
     private func applySplitMasks(dividerX: CGFloat, imageFrame: CGRect) {
@@ -365,13 +359,8 @@ class ImageCanvasNSView: NSView {
         )
         imageLayer.frame = imageFrame
         imageLayer.opacity = Float(imageFade)
-        // Update split layers if active
         if let pos = splitPosition {
-            originalLayer?.frame = imageFrame
-            let viewWidth = bounds.width
-            let dividerX = viewWidth * pos
-            applySplitMasks(dividerX: dividerX, imageFrame: imageFrame)
-            splitDividerLayer?.frame = CGRect(x: dividerX - 2, y: 0, width: 4, height: bounds.height)
+            layOutSplit(at: pos, imageFrame: imageFrame)
         }
         CATransaction.commit()
     }
@@ -400,10 +389,7 @@ extension ImageCanvasNSView {
 
         if let bg = backgroundRenderer, bg.canMove {
             dragBackground = !pointIsInImage(point)
-            if event.modifierFlags.contains([.shift])
-                || event.modifierFlags.contains([.option])
-                || event.modifierFlags.contains([.command])
-            {
+            if !event.modifierFlags.isDisjoint(with: [.shift, .option, .command]) {
                 dragBackground = !dragBackground
             }
         } else {
@@ -417,7 +403,7 @@ extension ImageCanvasNSView {
             return
         }
 
-        // Track potential drag-out if clicking on the image with quantized data available
+        // A press on the image may become a drag out, once it moves 4 points.
         if !dragBackground && pointIsInImage(point) && dragOutProvider?() != nil {
             potentialDragStart = point
         } else {
@@ -443,18 +429,16 @@ extension ImageCanvasNSView {
 
         let point = convert(event.locationInWindow, from: nil)
 
-        // Handle split divider dragging
         if isDraggingSplit {
             let newPos = max(0.05, min(0.95, point.x / bounds.width))
             splitPosition = newPos
             return
         }
 
-        // Check if we should start a drag-out session
         if let start = potentialDragStart {
             let dx = point.x - start.x
             let dy = point.y - start.y
-            if dx * dx + dy * dy > 16 {  // 4px threshold
+            if dx * dx + dy * dy > 16 {
                 potentialDragStart = nil
                 beginImageDrag(from: event)
                 return

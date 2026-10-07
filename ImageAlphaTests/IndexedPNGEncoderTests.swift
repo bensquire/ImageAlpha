@@ -141,64 +141,18 @@ struct IndexedPNGEncoderTests {
 
     // MARK: - Bit depth selection
 
-    @Test func bitDepthIs1ForTwoColorPalette() {
-        // Arrange
-        let paletteCount = 2
-
+    @Test(arguments: [(2, 1), (3, 2), (16, 4), (17, 8), (256, 8)])
+    func bitDepthIsTheSmallestThatIndexesThePalette(paletteCount: Int, expectedDepth: Int) {
         // Act
         let depth = IndexedPNGEncoder.bitDepth(forPaletteCount: paletteCount)
 
         // Assert
-        #expect(depth == 1)
-    }
-
-    @Test func bitDepthIs2ForThreeColorPalette() {
-        // Arrange
-        let paletteCount = 3
-
-        // Act
-        let depth = IndexedPNGEncoder.bitDepth(forPaletteCount: paletteCount)
-
-        // Assert
-        #expect(depth == 2)
-    }
-
-    @Test func bitDepthIs4ForSixteenColorPalette() {
-        // Arrange
-        let paletteCount = 16
-
-        // Act
-        let depth = IndexedPNGEncoder.bitDepth(forPaletteCount: paletteCount)
-
-        // Assert
-        #expect(depth == 4)
-    }
-
-    @Test func bitDepthIs8ForSeventeenColorPalette() {
-        // Arrange
-        let paletteCount = 17
-
-        // Act
-        let depth = IndexedPNGEncoder.bitDepth(forPaletteCount: paletteCount)
-
-        // Assert
-        #expect(depth == 8)
-    }
-
-    @Test func bitDepthIs8For256ColorPalette() {
-        // Arrange
-        let paletteCount = 256
-
-        // Act
-        let depth = IndexedPNGEncoder.bitDepth(forPaletteCount: paletteCount)
-
-        // Assert
-        #expect(depth == 8)
+        #expect(depth == expectedDepth)
     }
 
     // MARK: - Header
 
-    @Test func encodesIndexedColorType() throws {
+    @Test func headerDeclaresIndexedColorAtTheSmallestBitDepth() throws {
         // Arrange
         let palette = [
             Entry(red: 255, green: 0, blue: 0, alpha: 255), Entry(red: 0, green: 255, blue: 0, alpha: 255),
@@ -237,10 +191,11 @@ struct IndexedPNGEncoderTests {
         #expect(decoded.height == height)
         for i in 0..<(width * height) {
             let expected = palette[Int(pixels[i])]
-            #expect(decoded.rgba[i * 4 + 0] == expected.red)
-            #expect(decoded.rgba[i * 4 + 1] == expected.green)
-            #expect(decoded.rgba[i * 4 + 2] == expected.blue)
-            #expect(decoded.rgba[i * 4 + 3] == 255)
+            #expect(
+                Array(decoded.rgba[(i * 4)..<(i * 4 + 4)]) == [
+                    expected.red, expected.green, expected.blue, 255,
+                ],
+                "pixel \(i)")
         }
     }
 
@@ -301,9 +256,11 @@ struct IndexedPNGEncoderTests {
 
         // Assert
         for i in 0..<(width * height) {
-            #expect(decoded.rgba[i * 4 + 0] == palette[i].red)
-            #expect(decoded.rgba[i * 4 + 1] == palette[i].green)
-            #expect(decoded.rgba[i * 4 + 2] == palette[i].blue)
+            #expect(
+                Array(decoded.rgba[(i * 4)..<(i * 4 + 3)]) == [
+                    palette[i].red, palette[i].green, palette[i].blue,
+                ],
+                "pixel \(i), palette entry \(i)")
         }
     }
 

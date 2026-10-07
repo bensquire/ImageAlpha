@@ -33,7 +33,7 @@ class DocumentModel {
     var quantizedPNGData: Data?
     var compareMode: Bool = false { didSet { if compareMode { showOriginal = false } } }
     var isBusy: Bool = false
-    var statusMessage: String = "To get started, drop PNG image onto main area on the right"
+    var statusMessage: String = DocumentModel.gettingStarted
     var selectedBackground: BackgroundStyle = .checkerboard
     var sourceURL: URL?
     var sourceColorCount: Int?
@@ -46,6 +46,7 @@ class DocumentModel {
     @ObservationIgnored var didChangeParameters: (() -> Void)?
 
     private static let logger = Logger(subsystem: "net.pornel.ImageAlpha", category: "DocumentModel")
+    nonisolated static let gettingStarted = "To get started, drop a PNG image onto the area on the right."
 
     private let quantizer = Quantizer()
     @ObservationIgnored private var parameterTask: Task<Void, Never>?
@@ -250,15 +251,13 @@ class DocumentModel {
     }
 
     private func updateStatus() {
-        guard quantizedPNGData != nil else {
-            statusMessage =
-                sourceImage != nil
-                ? "Processing..." : "To get started, drop PNG image onto main area on the right"
+        guard let quantizedPNGData else {
+            statusMessage = sourceImage != nil ? "Processing…" : Self.gettingStarted
             return
         }
 
         statusMessage = Self.formatStatus(
-            quantizedSize: quantizedPNGData!.count,
+            quantizedSize: quantizedPNGData.count,
             sourceSize: sourceFileData?.count,
             sourceColorCount: sourceColorCount,
             colorsDisplay: colorsDisplayString,
@@ -278,7 +277,6 @@ class DocumentModel {
     ) -> String {
         func number(_ value: Int) -> String { value.formatted(.number.locale(locale)) }
 
-        // Build "Original: …" part
         var originalParts: [String] = []
         if let count = sourceColorCount {
             let countString = number(count)
@@ -289,7 +287,6 @@ class DocumentModel {
             originalParts.append("\(sizeString) bytes")
         }
 
-        // Build "Quantized: …" part
         let quantizedSizeStr = number(quantizedSize)
         var quantizedParts: [String] = []
         if sourceColorCount != nil {
@@ -309,7 +306,7 @@ class DocumentModel {
         if sourceColorCount == nil && originalParts.isEmpty {
             return "Quantized: \(quantizedParts.joined(separator: ", "))."
         } else if sourceColorCount == nil {
-            return "Original: \(originalParts.joined(separator: ", ")). Quantized: ..."
+            return "Original: \(originalParts.joined(separator: ", ")). Quantized: …"
         } else {
             return
                 "Original: \(originalParts.joined(separator: ", ")). Quantized: \(quantizedParts.joined(separator: ", "))."

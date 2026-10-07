@@ -3,9 +3,12 @@ import AppKit
 import CoreGraphics
 
 struct QuantizationOptions: Equatable {
+    /// libimagequant's speed, 1 (slowest, best) to 10; Preferences falls back to this.
+    static let defaultSpeed = 3
+
     var numberOfColors: Int = 256
     var dithering: Bool = false
-    var speed: Int = 3
+    var speed: Int = Self.defaultSpeed
     /// 0–100 target; when set, libimagequant uses the fewest colors (up to
     /// `numberOfColors`) that still reach this quality.
     var qualityTarget: Int?
@@ -45,7 +48,7 @@ enum QuantizationError: Error, LocalizedError {
 
 actor Quantizer {
 
-    private static let srgb = CGColorSpace(name: CGColorSpace.sRGB)!
+    private static let srgb = CGColorSpace(name: CGColorSpace.sRGB)
 
     func quantize(cgImage: CGImage, options: QuantizationOptions) throws -> QuantizationResult {
         // Slider scrubbing queues multiple requests on this actor; skip any
@@ -64,7 +67,6 @@ actor Quantizer {
             throw QuantizationError.failedToGetPixelData
         }
 
-        // Create libimagequant attr
         guard let attr = liq_attr_create() else {
             throw QuantizationError.failedToCreateAttr
         }
@@ -72,13 +74,11 @@ actor Quantizer {
 
         Self.configure(attr, with: options)
 
-        // Create libimagequant image
         guard let liqImage = liq_image_create_rgba(attr, pixelData, Int32(width), Int32(height), 0) else {
             throw QuantizationError.failedToCreateImage
         }
         defer { liq_image_destroy(liqImage) }
 
-        // Quantize
         try Task.checkCancellation()
         var resultPtr: OpaquePointer?
         let quantErr = liq_image_quantize(liqImage, attr, &resultPtr)
@@ -87,10 +87,8 @@ actor Quantizer {
         }
         defer { liq_result_destroy(result) }
 
-        // Set dithering
         liq_set_dithering_level(result, options.dithering ? 1.0 : 0.0)
 
-        // Remap image
         let remapped = UnsafeMutablePointer<UInt8>.allocate(capacity: pixelCount)
         defer { remapped.deallocate() }
 
@@ -99,7 +97,6 @@ actor Quantizer {
             throw QuantizationError.failedToRemap(remapErr)
         }
 
-        // Get palette
         guard let palettePtr = liq_get_palette(result) else {
             throw QuantizationError.failedToQuantize(LIQ_OK)
         }
@@ -152,7 +149,7 @@ actor Quantizer {
     private static func readStraightRGBA(_ cgImage: CGImage, into destination: UnsafeMutableRawPointer)
         -> Bool
     {
-        guard
+        guard let srgb,
             var format = vImage_CGImageFormat(
                 bitsPerComponent: 8,
                 bitsPerPixel: 32,
@@ -203,7 +200,8 @@ actor Quantizer {
         }
 
         // sRGB, like the palette it shows, so the preview matches the saved file.
-        guard let dataProvider = CGDataProvider(data: Data(outputPixels) as CFData),
+        guard let srgb,
+            let dataProvider = CGDataProvider(data: Data(outputPixels) as CFData),
             let outputCGImage = CGImage(
                 width: width,
                 height: height,

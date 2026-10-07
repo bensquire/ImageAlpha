@@ -13,8 +13,13 @@ enum Preferences {
     /// Injectable for tests; production code always uses .standard.
     nonisolated(unsafe) static var defaults: UserDefaults = .standard
 
-    static let defaultSpeed = 3
+    static let defaultSpeed = QuantizationOptions.defaultSpeed
     static let speedRange = 1...10
+
+    /// Values a key reads before the user has chosen one.
+    static func registerDefaults() {
+        defaults.register(defaults: [Key.optimizeWithImageOptim: true])
+    }
 
     /// Tri-state: nil means "Automatic" (no explicit user choice).
     static var dithering: Bool? {
