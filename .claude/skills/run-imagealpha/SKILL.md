@@ -1,6 +1,6 @@
 ---
 name: run-imagealpha
-description: Build, run, and drive ImageAlpha, the macOS PNG quantizer. Use when asked to start or relaunch ImageAlpha, build it, run its tests, take a screenshot of its window, click through its UI (open an image, toggle options, close/save/overwrite, quit), or confirm a change works in the real app.
+description: Run and drive ImageAlpha, the macOS PNG quantizer, through its UI. Use when asked to start or relaunch ImageAlpha, take a screenshot of its window, click through its UI (open an image, toggle options, close/save/overwrite, quit), or confirm a change works in the real app. Building, testing and linting without the UI is the build skill.
 ---
 
 ImageAlpha is a native AppKit/SwiftUI document app, so it only runs on macOS.
@@ -9,7 +9,8 @@ app, launches it, clicks through it with System Events UI scripting, and takes
 window screenshots with `screencapture`. Mouse drags, scrolls and pointer
 moves, which System Events can't post, go through `input.swift`, a small
 CoreGraphics helper the driver compiles on first use. All paths are relative to
-the repo root.
+the repo root. The `build` skill covers building, the test suite, lint and the
+release path on their own.
 
 ## Prerequisites
 

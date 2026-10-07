@@ -24,12 +24,14 @@ included. It's AppKit with SwiftUI views, sandboxed, and targets macOS 15.
 
 ```
 make test     # builds libimagequant, then runs the tests (ad-hoc signed)
-make lint     # swiftlint --strict
+make lint     # swift format lint --strict
 make format   # swift-format in place, against .swift-format
 ```
 
 ## Where the rest lives
 
+- **`.claude/skills/build/`:** libimagequant, the Debug and Release builds, one
+  test or the suite, lint and format, what CI runs, and the release path.
 - **`.claude/skills/run-imagealpha/`** (`/run-imagealpha`): `driver.sh` builds
   the Debug app, launches it, clicks, drags and scrolls through it, and
   screenshots it. SKILL.md lists the traps.
@@ -37,8 +39,8 @@ make format   # swift-format in place, against .swift-format
   Apple's documentation, WWDC transcripts and sample code. It also covers where
   to look when a page is silent.
 - **`.claude/rules/`:** one rule per file, indexed in `README.md`.
-- **`.claude/hooks/`:** format with swift-format, then lint with SwiftLint,
-  every Swift file as it's edited.
+- **`.claude/hooks/`:** format every Swift file with swift-format as it's
+  edited, then report any line still over 110 columns.
 - **Preferences** persist in the sandbox container,
   `~/Library/Containers/net.pornel.ImageAlpha/Data/Library/Preferences/`.
   The Debug build shares them with any installed copy. The Tools → Dithering

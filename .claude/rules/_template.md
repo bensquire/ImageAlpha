@@ -29,4 +29,5 @@ Reference: where this came from, if anywhere.
 
 Notes on the frontmatter: `paths` is read by Claude Code and scopes the rule to
 files matching the globs; leave it out for a rule that always applies. Arrays are
-written inline, `[like, this]`.
+written inline, `[like, this]`. The app's sources are at the repo root
+(`*.swift`) and in `Views/`; the tests are in `ImageAlphaTests/`.
