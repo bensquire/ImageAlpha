@@ -35,11 +35,10 @@ struct ImageCanvasView: NSViewRepresentable {
             nsView.splitPosition = wantSplit
         }
 
-        // Skipped when quantizedImage is sourceImage (24-bit passthrough), to
-        // avoid scale/size conflicts.
+        // In 24-bit passthrough quantizedImage is sourceImage itself, and it is
+        // shown like any result; syncImageScale copying its own scale is a no-op.
         if !model.showOriginal,
             let qi = model.quantizedImage,
-            qi !== model.sourceImage,
             nsView.displayImage !== qi
         {
             nsView.displayImage = qi
