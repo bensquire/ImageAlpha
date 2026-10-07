@@ -59,7 +59,8 @@ class DocumentModel {
     @ObservationIgnored private var completedOptions: QuantizationOptions?
     /// Most recent results keyed by their options, capped at two entries, so
     /// toggling between modes restores either side without re-quantizing.
-    @ObservationIgnored private var recentResults: [(options: QuantizationOptions, result: QuantizationResult)] = []
+    @ObservationIgnored private var recentResults:
+        [(options: QuantizationOptions, result: QuantizationResult)] = []
     /// Incremented on every load; async work captures the current value and
     /// discards its result if another image was loaded in the meantime.
     @ObservationIgnored private var loadGeneration = 0
@@ -175,7 +176,8 @@ class DocumentModel {
             } catch {
                 guard !Task.isCancelled else { return }
                 self.isBusy = false
-                Self.logger.error("requestQuantization failed: \(error.localizedDescription, privacy: .public)")
+                Self.logger.error(
+                    "requestQuantization failed: \(error.localizedDescription, privacy: .public)")
                 self.statusMessage = "Error: \(error.localizedDescription)"
             }
         }
@@ -249,7 +251,9 @@ class DocumentModel {
 
     private func updateStatus() {
         guard quantizedPNGData != nil else {
-            statusMessage = sourceImage != nil ? "Processing..." : "To get started, drop PNG image onto main area on the right"
+            statusMessage =
+                sourceImage != nil
+                ? "Processing..." : "To get started, drop PNG image onto main area on the right"
             return
         }
 
@@ -307,7 +311,8 @@ class DocumentModel {
         } else if sourceColorCount == nil {
             return "Original: \(originalParts.joined(separator: ", ")). Quantized: ..."
         } else {
-            return "Original: \(originalParts.joined(separator: ", ")). Quantized: \(quantizedParts.joined(separator: ", "))."
+            return
+                "Original: \(originalParts.joined(separator: ", ")). Quantized: \(quantizedParts.joined(separator: ", "))."
         }
     }
 

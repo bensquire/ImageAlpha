@@ -8,14 +8,15 @@ on:
 
 jobs:
   build:
-    runs-on: macos-latest
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      - name: Install SwiftLint
-        run: brew install swiftlint
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: "26.6"
 
       - name: Lint
         run: make lint

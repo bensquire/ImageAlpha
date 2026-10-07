@@ -9,7 +9,9 @@ struct ImageCanvasView: NSViewRepresentable {
         view.delegate = context.coordinator
         view.dragOutProvider = { [weak model] in
             guard let model, let data = model.quantizedPNGData else { return nil }
-            return PromisedPNG(data: data, fileName: ImageCanvasNSView.dragOutFileName(for: model.sourceURL?.lastPathComponent))
+            return PromisedPNG(
+                data: data,
+                fileName: ImageCanvasNSView.dragOutFileName(for: model.sourceURL?.lastPathComponent))
         }
         view.zoomToFill()
         return view

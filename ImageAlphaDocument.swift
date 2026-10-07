@@ -56,7 +56,8 @@ class ImageAlphaDocument: NSDocument {
     }
 
     override func prepareSavePanel(_ savePanel: NSSavePanel) -> Bool {
-        guard NSWorkspace.shared.urlForApplication(withBundleIdentifier: "net.pornel.ImageOptim") != nil else {
+        guard NSWorkspace.shared.urlForApplication(withBundleIdentifier: "net.pornel.ImageOptim") != nil
+        else {
             return true
         }
 
@@ -74,7 +75,9 @@ class ImageAlphaDocument: NSDocument {
     /// first. Every save to the file comes through here: File → Save "merely
     /// invokes" this method, and so does Save in the close and quit sheets
     /// (NSDocument.h, saveDocument: and canCloseDocumentWithDelegate:).
-    override func save(withDelegate delegate: Any?, didSave didSaveSelector: Selector?, contextInfo: UnsafeMutableRawPointer?) {
+    override func save(
+        withDelegate delegate: Any?, didSave didSaveSelector: Selector?, contextInfo: UnsafeMutableRawPointer?
+    ) {
         guard let url = fileURL else {
             // Untitled: NSDocument runs the Save panel, so nothing is overwritten.
             super.save(withDelegate: delegate, didSave: didSaveSelector, contextInfo: contextInfo)
@@ -83,14 +86,16 @@ class ImageAlphaDocument: NSDocument {
 
         let alert = NSAlert()
         alert.messageText = "Overwrite original file?"
-        alert.informativeText = "This will replace \"\(url.lastPathComponent)\" with the quantized image. This cannot be undone."
+        alert.informativeText =
+            "This will replace \"\(url.lastPathComponent)\" with the quantized image. This cannot be undone."
         alert.alertStyle = .warning
         alert.addButton(withTitle: "Overwrite")
         alert.addButton(withTitle: "Save As\u{2026}")
         alert.addButton(withTitle: "Cancel")
 
         let finish = { (response: NSApplication.ModalResponse) in
-            self.continueSave(after: response, delegate: delegate, didSave: didSaveSelector, contextInfo: contextInfo)
+            self.continueSave(
+                after: response, delegate: delegate, didSave: didSaveSelector, contextInfo: contextInfo)
         }
         // "may be nil, in which case the sender should present an app-modal
         // panel." /documentation/appkit/nsdocument/windowforsheet
@@ -114,7 +119,8 @@ class ImageAlphaDocument: NSDocument {
             // the file. /documentation/appkit/nsdocument/save(withdelegate:didsave:contextinfo:)
             super.save(withDelegate: delegate, didSave: didSaveSelector, contextInfo: contextInfo)
         case .alertSecondButtonReturn:
-            runModalSavePanel(for: .saveAsOperation, delegate: delegate, didSave: didSaveSelector, contextInfo: contextInfo)
+            runModalSavePanel(
+                for: .saveAsOperation, delegate: delegate, didSave: didSaveSelector, contextInfo: contextInfo)
         default:
             reportSave(false, to: delegate, selector: didSaveSelector, contextInfo: contextInfo)
         }
@@ -126,8 +132,11 @@ class ImageAlphaDocument: NSDocument {
     private func reportSave(
         _ didSave: Bool, to delegate: Any?, selector: Selector?, contextInfo: UnsafeMutableRawPointer?
     ) {
-        guard let delegate = delegate as? NSObject, let selector, delegate.responds(to: selector) else { return }
-        typealias DidSave = @convention(c) (NSObject, Selector, NSDocument, Bool, UnsafeMutableRawPointer?) -> Void
+        guard let delegate = delegate as? NSObject, let selector, delegate.responds(to: selector) else {
+            return
+        }
+        typealias DidSave =
+            @convention(c) (NSObject, Selector, NSDocument, Bool, UnsafeMutableRawPointer?) -> Void
         let callback = unsafeBitCast(delegate.method(for: selector), to: DidSave.self)
         callback(delegate, selector, self, didSave, contextInfo)
     }
@@ -182,13 +191,16 @@ class ImageAlphaDocument: NSDocument {
             if areCopies {
                 do {
                     let name = url.deletingPathExtension().lastPathComponent
-                    _ = try NSDocumentController.shared.duplicateDocument(withContentsOf: url, copying: false, displayName: name)
+                    _ = try NSDocumentController.shared.duplicateDocument(
+                        withContentsOf: url, copying: false, displayName: name)
                     opened(nil)
                 } catch {
                     opened(error)
                 }
             } else {
-                NSDocumentController.shared.openDocument(withContentsOf: url, display: true) { _, _, error in opened(error) }
+                NSDocumentController.shared.openDocument(withContentsOf: url, display: true) { _, _, error in
+                    opened(error)
+                }
             }
         }
     }
@@ -220,8 +232,10 @@ class ImageAlphaDocument: NSDocument {
     }
 
     private func openInImageOptim(url: URL) {
-        guard let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "net.pornel.ImageOptim") else { return }
-        NSWorkspace.shared.open([url], withApplicationAt: appURL, configuration: NSWorkspace.OpenConfiguration())
+        guard let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "net.pornel.ImageOptim")
+        else { return }
+        NSWorkspace.shared.open(
+            [url], withApplicationAt: appURL, configuration: NSWorkspace.OpenConfiguration())
     }
 
     override func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {

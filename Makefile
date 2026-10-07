@@ -68,10 +68,10 @@ publish: dmg notarize
 	gh release upload "v$(VERSION)" $(DMG_PATH) --clobber
 
 lint:
-	swiftlint lint --strict
+	swift format lint --strict --recursive *.swift Views ImageAlphaTests
 
 format:
-	xcrun swift-format format -i --configuration .swift-format *.swift Views/*.swift ImageAlphaTests/*.swift
+	swift format --in-place --recursive *.swift Views ImageAlphaTests
 
 test: pngquant
 	xcodebuild -project $(PROJECT) -scheme $(SCHEME) -configuration Debug \

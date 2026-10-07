@@ -68,7 +68,8 @@ extension ImageCanvasNSView {
     }
 
     override func draggingEntered(_ sender: any NSDraggingInfo) -> NSDragOperation {
-        let operation = dropOperation(for: sender.draggingPasteboard, sourceMask: sender.draggingSourceOperationMask)
+        let operation = dropOperation(
+            for: sender.draggingPasteboard, sourceMask: sender.draggingSourceOperationMask)
         if !operation.isEmpty {
             imageFade = 0.15
         }
@@ -89,7 +90,8 @@ extension ImageCanvasNSView {
 
     override func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {
         let pasteboard = sender.draggingPasteboard
-        if let urls = pasteboard.readObjects(forClasses: [NSURL.self], options: Self.dropReadingOptions) as? [URL],
+        if let urls = pasteboard.readObjects(forClasses: [NSURL.self], options: Self.dropReadingOptions)
+            as? [URL],
             !urls.isEmpty
         {
             delegate?.canvasDidReceiveDrop(urls: urls, areCopies: false)
@@ -106,7 +108,8 @@ extension ImageCanvasNSView {
     }
 
     private func documentPromises(on pasteboard: NSPasteboard) -> [NSFilePromiseReceiver] {
-        let receivers = pasteboard.readObjects(forClasses: [NSFilePromiseReceiver.self]) as? [NSFilePromiseReceiver] ?? []
+        let receivers =
+            pasteboard.readObjects(forClasses: [NSFilePromiseReceiver.self]) as? [NSFilePromiseReceiver] ?? []
         return receivers.filter { receiver in
             receiver.fileTypes.contains { type in
                 guard let promised = UTType(type) ?? UTType(filenameExtension: type) else { return false }
@@ -126,7 +129,8 @@ extension ImageCanvasNSView {
             .appendingPathComponent("Drops", isDirectory: true)
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
         guard !promises.isEmpty,
-            (try? FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)) != nil
+            (try? FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true))
+                != nil
         else { return false }
         for promise in promises {
             // Weak from the outset: the receiver keeps this block until the

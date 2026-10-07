@@ -30,7 +30,8 @@ struct DecodedImage {
                     bitsPerComponent: 8,
                     bytesPerRow: image.width * 4,
                     space: CGColorSpaceCreateDeviceRGB(),
-                    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue
+                    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+                        | CGBitmapInfo.byteOrder32Big.rawValue
                 )
             else { return false }
             context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
@@ -85,7 +86,8 @@ func writeTemporaryFile(named name: String, contents: Data) throws -> URL {
 /// A small white image, written as a PNG file.
 func writeTestPNG(named name: String) throws -> URL {
     let pixels = [UInt8](repeating: 255, count: 4 * 4 * 4)
-    return try writeTemporaryFile(named: name, contents: encodeTruecolorPNG(makeTestCGImage(width: 4, height: 4, rgba: pixels)))
+    return try writeTemporaryFile(
+        named: name, contents: encodeTruecolorPNG(makeTestCGImage(width: 4, height: 4, rgba: pixels)))
 }
 
 struct IndexedPNGEncoderTests {
@@ -198,11 +200,14 @@ struct IndexedPNGEncoderTests {
 
     @Test func encodesIndexedColorType() throws {
         // Arrange
-        let palette = [Entry(red: 255, green: 0, blue: 0, alpha: 255), Entry(red: 0, green: 255, blue: 0, alpha: 255)]
+        let palette = [
+            Entry(red: 255, green: 0, blue: 0, alpha: 255), Entry(red: 0, green: 255, blue: 0, alpha: 255),
+        ]
         let pixels: [UInt8] = [0, 1, 1, 0]
 
         // Act
-        let png = try #require(IndexedPNGEncoder.encode(width: 2, height: 2, palette: palette, pixels: pixels))
+        let png = try #require(
+            IndexedPNGEncoder.encode(width: 2, height: 2, palette: palette, pixels: pixels))
 
         // Assert
         #expect(ihdrColorType(png) == 3)
@@ -223,7 +228,8 @@ struct IndexedPNGEncoderTests {
         let pixels: [UInt8] = (0..<(width * height)).map { UInt8($0 % 4) }
 
         // Act
-        let png = try #require(IndexedPNGEncoder.encode(width: width, height: height, palette: palette, pixels: pixels))
+        let png = try #require(
+            IndexedPNGEncoder.encode(width: width, height: height, palette: palette, pixels: pixels))
         let decoded = try decodeRGBA(png)
 
         // Assert
@@ -247,7 +253,8 @@ struct IndexedPNGEncoderTests {
         let pixels: [UInt8] = [0, 1, 0, 1]
 
         // Act
-        let png = try #require(IndexedPNGEncoder.encode(width: 2, height: 2, palette: palette, pixels: pixels))
+        let png = try #require(
+            IndexedPNGEncoder.encode(width: 2, height: 2, palette: palette, pixels: pixels))
         let decoded = try decodeRGBA(png)
 
         // Assert
@@ -268,7 +275,8 @@ struct IndexedPNGEncoderTests {
         let pixels: [UInt8] = [1, 0, 1, 0, 1, 0, 1, 1, 0]
 
         // Act
-        let png = try #require(IndexedPNGEncoder.encode(width: width, height: height, palette: palette, pixels: pixels))
+        let png = try #require(
+            IndexedPNGEncoder.encode(width: width, height: height, palette: palette, pixels: pixels))
         let decoded = try decodeRGBA(png)
 
         // Assert
@@ -280,12 +288,15 @@ struct IndexedPNGEncoderTests {
 
     @Test func roundTrips256ColorPalette() throws {
         // Arrange
-        let palette = (0..<256).map { Entry(red: UInt8($0), green: UInt8(255 - $0), blue: UInt8($0 / 2), alpha: 255) }
+        let palette = (0..<256).map {
+            Entry(red: UInt8($0), green: UInt8(255 - $0), blue: UInt8($0 / 2), alpha: 255)
+        }
         let width = 16, height = 16
         let pixels: [UInt8] = (0..<256).map { UInt8($0) }
 
         // Act
-        let png = try #require(IndexedPNGEncoder.encode(width: width, height: height, palette: palette, pixels: pixels))
+        let png = try #require(
+            IndexedPNGEncoder.encode(width: width, height: height, palette: palette, pixels: pixels))
         let decoded = try decodeRGBA(png)
 
         // Assert
@@ -300,10 +311,13 @@ struct IndexedPNGEncoderTests {
 
     @Test func omitsTRNSChunkWhenPaletteFullyOpaque() throws {
         // Arrange
-        let palette = [Entry(red: 1, green: 2, blue: 3, alpha: 255), Entry(red: 4, green: 5, blue: 6, alpha: 255)]
+        let palette = [
+            Entry(red: 1, green: 2, blue: 3, alpha: 255), Entry(red: 4, green: 5, blue: 6, alpha: 255),
+        ]
 
         // Act
-        let png = try #require(IndexedPNGEncoder.encode(width: 2, height: 1, palette: palette, pixels: [0, 1]))
+        let png = try #require(
+            IndexedPNGEncoder.encode(width: 2, height: 1, palette: palette, pixels: [0, 1]))
 
         // Assert
         #expect(!containsChunk(png, "tRNS"))
@@ -311,10 +325,13 @@ struct IndexedPNGEncoderTests {
 
     @Test func includesTRNSChunkWhenPaletteHasTransparency() throws {
         // Arrange
-        let palette = [Entry(red: 1, green: 2, blue: 3, alpha: 0), Entry(red: 4, green: 5, blue: 6, alpha: 255)]
+        let palette = [
+            Entry(red: 1, green: 2, blue: 3, alpha: 0), Entry(red: 4, green: 5, blue: 6, alpha: 255),
+        ]
 
         // Act
-        let png = try #require(IndexedPNGEncoder.encode(width: 2, height: 1, palette: palette, pixels: [0, 1]))
+        let png = try #require(
+            IndexedPNGEncoder.encode(width: 2, height: 1, palette: palette, pixels: [0, 1]))
 
         // Assert
         #expect(containsChunk(png, "tRNS"))
@@ -349,7 +366,8 @@ struct IndexedPNGEncoderTests {
         let imageIOData = try encodeTruecolorPNG(cgImage)
 
         // Act
-        let indexed = try #require(IndexedPNGEncoder.encode(width: width, height: height, palette: palette, pixels: pixels))
+        let indexed = try #require(
+            IndexedPNGEncoder.encode(width: width, height: height, palette: palette, pixels: pixels))
 
         // Assert
         #expect(indexed.count < imageIOData.count)

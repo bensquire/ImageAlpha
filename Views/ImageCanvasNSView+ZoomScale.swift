@@ -31,12 +31,15 @@ extension ImageCanvasNSView {
         guard let rep = image.representations.first else { return .zero }
         let imageSize = image.size
         guard imageSize.width > 0, imageSize.height > 0 else { return .zero }
-        return NSSize(width: CGFloat(rep.pixelsWide) / imageSize.width, height: CGFloat(rep.pixelsHigh) / imageSize.height)
+        return NSSize(
+            width: CGFloat(rep.pixelsWide) / imageSize.width,
+            height: CGFloat(rep.pixelsHigh) / imageSize.height)
     }
 
     private func setScale(_ scale: NSSize, of image: NSImage) {
         guard let rep = image.representations.first, scale.width > 0, scale.height > 0 else { return }
-        image.size = NSSize(width: CGFloat(rep.pixelsWide) / scale.width, height: CGFloat(rep.pixelsHigh) / scale.height)
+        image.size = NSSize(
+            width: CGFloat(rep.pixelsWide) / scale.width, height: CGFloat(rep.pixelsHigh) / scale.height)
     }
 
     /// Copies the original's point↔pixel scale onto the display image so both

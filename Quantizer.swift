@@ -106,10 +106,12 @@ actor Quantizer {
         let palette = palettePtr.pointee
         let colorCount = Int(palette.count)
 
-        let paletteEntries: [IndexedPNGEncoder.PaletteEntry] = withUnsafePointer(to: palette.entries) { entriesPtr in
+        let paletteEntries: [IndexedPNGEncoder.PaletteEntry] = withUnsafePointer(to: palette.entries) {
+            entriesPtr in
             entriesPtr.withMemoryRebound(to: liq_color.self, capacity: 256) { colors in
                 (0..<colorCount).map { i in
-                    IndexedPNGEncoder.PaletteEntry(red: colors[i].r, green: colors[i].g, blue: colors[i].b, alpha: colors[i].a)
+                    IndexedPNGEncoder.PaletteEntry(
+                        red: colors[i].r, green: colors[i].g, blue: colors[i].b, alpha: colors[i].a)
                 }
             }
         }
@@ -147,13 +149,16 @@ actor Quantizer {
     /// /documentation/accelerate/vimagebuffer_initwithcgimage(_:_:_:_:_:)
     /// sRGB, not device RGB, which is "not recommended when color preservation
     /// is important". /documentation/coregraphics/cgcolorspacecreatedevicergb()
-    private static func readStraightRGBA(_ cgImage: CGImage, into destination: UnsafeMutableRawPointer) -> Bool {
+    private static func readStraightRGBA(_ cgImage: CGImage, into destination: UnsafeMutableRawPointer)
+        -> Bool
+    {
         guard
             var format = vImage_CGImageFormat(
                 bitsPerComponent: 8,
                 bitsPerPixel: 32,
                 colorSpace: srgb,
-                bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.last.rawValue | CGBitmapInfo.byteOrder32Big.rawValue)
+                bitmapInfo: CGBitmapInfo(
+                    rawValue: CGImageAlphaInfo.last.rawValue | CGBitmapInfo.byteOrder32Big.rawValue)
             )
         else {
             return false
@@ -166,7 +171,8 @@ actor Quantizer {
         )
         // kvImageNoAllocate: fill the caller's packed buffer rather than one
         // vImage sizes, whose rows may be padded. /documentation/accelerate/kvimagenoallocate
-        return vImageBuffer_InitWithCGImage(&buffer, &format, nil, cgImage, vImage_Flags(kvImageNoAllocate)) == kvImageNoError
+        return vImageBuffer_InitWithCGImage(&buffer, &format, nil, cgImage, vImage_Flags(kvImageNoAllocate))
+            == kvImageNoError
     }
 
     private static func configure(_ attr: OpaquePointer, with options: QuantizationOptions) {

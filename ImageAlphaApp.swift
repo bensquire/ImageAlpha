@@ -37,7 +37,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         mainMenu.addItem(appMenuItem)
         let appMenu = NSMenu(title: "ImageAlpha")
         appMenuItem.submenu = appMenu
-        appMenu.addItem(withTitle: "About ImageAlpha", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        appMenu.addItem(
+            withTitle: "About ImageAlpha", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)),
+            keyEquivalent: "")
         appMenu.addItem(.separator())
         let servicesItem = NSMenuItem(title: "Services", action: nil, keyEquivalent: "")
         let servicesMenu = NSMenu(title: "Services")
@@ -45,28 +47,38 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.servicesMenu = servicesMenu
         appMenu.addItem(servicesItem)
         appMenu.addItem(.separator())
-        appMenu.addItem(withTitle: "Hide ImageAlpha", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
-        let hideOthers = appMenu.addItem(withTitle: "Hide Others", action: #selector(NSApplication.hideOtherApplications(_:)), keyEquivalent: "h")
+        appMenu.addItem(
+            withTitle: "Hide ImageAlpha", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
+        let hideOthers = appMenu.addItem(
+            withTitle: "Hide Others", action: #selector(NSApplication.hideOtherApplications(_:)),
+            keyEquivalent: "h")
         hideOthers.keyEquivalentModifierMask = [.command, .option]
-        appMenu.addItem(withTitle: "Show All", action: #selector(NSApplication.unhideAllApplications(_:)), keyEquivalent: "")
+        appMenu.addItem(
+            withTitle: "Show All", action: #selector(NSApplication.unhideAllApplications(_:)),
+            keyEquivalent: "")
         appMenu.addItem(.separator())
-        appMenu.addItem(withTitle: "Quit ImageAlpha", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        appMenu.addItem(
+            withTitle: "Quit ImageAlpha", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
 
         // File menu
         let fileMenuItem = NSMenuItem()
         mainMenu.addItem(fileMenuItem)
         let fileMenu = NSMenu(title: "File")
         fileMenuItem.submenu = fileMenu
-        fileMenu.addItem(withTitle: "New", action: #selector(NSDocumentController.newDocument(_:)), keyEquivalent: "n")
-        fileMenu.addItem(withTitle: "Open…", action: #selector(NSDocumentController.openDocument(_:)), keyEquivalent: "o")
+        fileMenu.addItem(
+            withTitle: "New", action: #selector(NSDocumentController.newDocument(_:)), keyEquivalent: "n")
+        fileMenu.addItem(
+            withTitle: "Open…", action: #selector(NSDocumentController.openDocument(_:)), keyEquivalent: "o")
         // No Open Recent here: AppKit inserts its own after Open…, and a
         // hand-built one showed up as a second copy (checked in the running app).
         fileMenu.addItem(.separator())
         fileMenu.addItem(withTitle: "Close", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
         fileMenu.addItem(withTitle: "Save…", action: #selector(NSDocument.save(_:)), keyEquivalent: "s")
-        let saveAs = fileMenu.addItem(withTitle: "Save As…", action: #selector(NSDocument.saveAs(_:)), keyEquivalent: "S")
+        let saveAs = fileMenu.addItem(
+            withTitle: "Save As…", action: #selector(NSDocument.saveAs(_:)), keyEquivalent: "S")
         saveAs.keyEquivalentModifierMask = [.command, .shift]
-        fileMenu.addItem(withTitle: "Revert to Saved", action: #selector(NSDocument.revertToSaved(_:)), keyEquivalent: "")
+        fileMenu.addItem(
+            withTitle: "Revert to Saved", action: #selector(NSDocument.revertToSaved(_:)), keyEquivalent: "")
 
         // Edit menu
         let editMenuItem = NSMenuItem()
@@ -101,12 +113,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         ditherItem.submenu = ditherSubmenu
         toolsMenu.addItem(ditherItem)
 
-        let auto = ditherSubmenu.addItem(withTitle: "Automatic", action: #selector(setDitheringAutomatic(_:)), keyEquivalent: "")
+        let auto = ditherSubmenu.addItem(
+            withTitle: "Automatic", action: #selector(setDitheringAutomatic(_:)), keyEquivalent: "")
         auto.tag = -1
         ditherSubmenu.addItem(.separator())
-        let on = ditherSubmenu.addItem(withTitle: "Dithered", action: #selector(setDitheringOn(_:)), keyEquivalent: "")
+        let on = ditherSubmenu.addItem(
+            withTitle: "Dithered", action: #selector(setDitheringOn(_:)), keyEquivalent: "")
         on.tag = 1
-        let off = ditherSubmenu.addItem(withTitle: "No Dithering", action: #selector(setDitheringOff(_:)), keyEquivalent: "")
+        let off = ditherSubmenu.addItem(
+            withTitle: "No Dithering", action: #selector(setDitheringOff(_:)), keyEquivalent: "")
         off.tag = 0
 
         // Speed submenu
@@ -123,7 +138,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             ("Fastest (lowest quality)", 10),
         ]
         for (title, speed) in speedEntries {
-            let item = speedSubmenu.addItem(withTitle: title, action: #selector(setSpeed(_:)), keyEquivalent: "")
+            let item = speedSubmenu.addItem(
+                withTitle: title, action: #selector(setSpeed(_:)), keyEquivalent: "")
             item.tag = speed
         }
 
@@ -132,10 +148,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         mainMenu.addItem(windowMenuItem)
         let windowMenu = NSMenu(title: "Window")
         windowMenuItem.submenu = windowMenu
-        windowMenu.addItem(withTitle: "Minimize", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
+        windowMenu.addItem(
+            withTitle: "Minimize", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
         windowMenu.addItem(withTitle: "Zoom", action: #selector(NSWindow.performZoom(_:)), keyEquivalent: "")
         windowMenu.addItem(.separator())
-        windowMenu.addItem(withTitle: "Bring All to Front", action: #selector(NSApplication.arrangeInFront(_:)), keyEquivalent: "")
+        windowMenu.addItem(
+            withTitle: "Bring All to Front", action: #selector(NSApplication.arrangeInFront(_:)),
+            keyEquivalent: "")
         // AppKit adds the window list here, and Enter Full Screen and the tab
         // items to the View menu, by itself (checked in the running app).
         NSApp.windowsMenu = windowMenu
@@ -145,7 +164,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         mainMenu.addItem(helpMenuItem)
         let helpMenu = NSMenu(title: "Help")
         helpMenuItem.submenu = helpMenu
-        helpMenu.addItem(withTitle: "ImageAlpha Help", action: #selector(openHelpPage(_:)), keyEquivalent: "?")
+        helpMenu.addItem(
+            withTitle: "ImageAlpha Help", action: #selector(openHelpPage(_:)), keyEquivalent: "?")
         NSApp.helpMenu = helpMenu
 
         return mainMenu

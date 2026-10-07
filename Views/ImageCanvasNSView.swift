@@ -148,7 +148,8 @@ class ImageCanvasNSView: NSView {
         hostLayer.addSublayer(imageLayer)
 
         addShadows()
-        registerForDraggedTypes([.fileURL] + NSFilePromiseReceiver.readableDraggedTypes.map { NSPasteboard.PasteboardType($0) })
+        registerForDraggedTypes(
+            [.fileURL] + NSFilePromiseReceiver.readableDraggedTypes.map { NSPasteboard.PasteboardType($0) })
         setUpTrackingArea()
     }
 
@@ -176,7 +177,8 @@ class ImageCanvasNSView: NSView {
         let top = CAGradientLayer()
         top.colors = [stop0, stop1, stop2, stop3]
         top.autoresizingMask = [.layerWidthSizable, .layerMinYMargin]
-        top.frame = CGRect(x: 0, y: hostBounds.height - shadowHeight, width: hostBounds.width, height: shadowHeight)
+        top.frame = CGRect(
+            x: 0, y: hostBounds.height - shadowHeight, width: hostBounds.width, height: shadowHeight)
         topShadow = top
 
         let left = CAGradientLayer()
@@ -341,7 +343,8 @@ class ImageCanvasNSView: NSView {
 
         let imgMask = CALayer()
         imgMask.backgroundColor = CGColor.black
-        imgMask.frame = CGRect(x: leftClip, y: 0, width: imageFrame.width - leftClip, height: imageFrame.height)
+        imgMask.frame = CGRect(
+            x: leftClip, y: 0, width: imageFrame.width - leftClip, height: imageFrame.height)
         imageLayer.mask = imgMask
     }
 
@@ -380,8 +383,10 @@ class ImageCanvasNSView: NSView {
         let halfWidth = max(50, imageSize.width * currentZoom + 15) / 2
         let halfHeight = max(50, imageSize.height * currentZoom + 15) / 2
         let offset = imageOffset
-        return point.x >= offset.x + frameSize.width / 2 - halfWidth && point.y >= offset.y + frameSize.height / 2 - halfHeight
-            && point.x <= offset.x + frameSize.width / 2 + halfWidth && point.y <= offset.y + frameSize.height / 2 + halfHeight
+        return point.x >= offset.x + frameSize.width / 2 - halfWidth
+            && point.y >= offset.y + frameSize.height / 2 - halfHeight
+            && point.x <= offset.x + frameSize.width / 2 + halfWidth
+            && point.y <= offset.y + frameSize.height / 2 + halfHeight
     }
 }
 

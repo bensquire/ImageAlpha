@@ -195,7 +195,8 @@ struct QuantizerTests {
         // Assert
         let entry = try #require(result.bitmap?.palette.first)
         #expect(
-            abs(Int(entry.red) - 200) <= 2 && abs(Int(entry.green) - 100) <= 2 && abs(Int(entry.blue) - 50) <= 2,
+            abs(Int(entry.red) - 200) <= 2 && abs(Int(entry.green) - 100) <= 2
+                && abs(Int(entry.blue) - 50) <= 2,
             "expected ≈(200, 100, 50), got \(entry)")
     }
 
@@ -216,7 +217,8 @@ struct QuantizerTests {
 
     @Test func ditheringProducesDecodablePNG() async throws {
         // Arrange
-        let image = try makeImage(width: 32, height: 32, colors: [[255, 0, 0], [250, 5, 5], [245, 10, 10]])
+        let image = try makeImage(
+            width: 32, height: 32, colors: [[255, 0, 0], [250, 5, 5], [245, 10, 10]])
         let quantizer = Quantizer()
         let options = QuantizationOptions(numberOfColors: 2, dithering: true)
 

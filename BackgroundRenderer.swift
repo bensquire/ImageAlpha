@@ -44,7 +44,8 @@ enum BackgroundStyle: Hashable, Identifiable {
             return "Solid color"
         case .texture(let name, _):
             // "white-gravel-128x128" → "White gravel"
-            let words = name.replacingOccurrences(of: "-128x128", with: "").replacingOccurrences(of: "-", with: " ")
+            let words = name.replacingOccurrences(of: "-128x128", with: "").replacingOccurrences(
+                of: "-", with: " ")
             return words.prefix(1).uppercased() + words.dropFirst()
         }
     }
@@ -143,7 +144,8 @@ class PatternBackground: BackgroundRendering {
             drawPattern: { info, ctx in
                 guard let info = info else { return }
                 let image = Unmanaged<CGImage>.fromOpaque(info).takeUnretainedValue()
-                ctx.draw(image, in: CGRect(x: 0, y: 0, width: CGFloat(image.width), height: CGFloat(image.height)))
+                ctx.draw(
+                    image, in: CGRect(x: 0, y: 0, width: CGFloat(image.width), height: CGFloat(image.height)))
             },
             releaseInfo: { info in
                 guard let info = info else { return }

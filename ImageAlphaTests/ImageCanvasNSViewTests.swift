@@ -68,7 +68,9 @@ struct ImageCanvasNSViewTests {
         return view
     }
 
-    private func writePromise(_ provider: NSFilePromiseProvider, of view: ImageCanvasNSView, to url: URL) async -> Error? {
+    private func writePromise(_ provider: NSFilePromiseProvider, of view: ImageCanvasNSView, to url: URL)
+        async -> Error?
+    {
         await withCheckedContinuation { continuation in
             view.filePromiseProvider(provider, writePromiseTo: url) { continuation.resume(returning: $0) }
         }
@@ -203,7 +205,9 @@ struct ImageCanvasNSViewTests {
         // Assert
         #expect(error == nil)
         #expect(try Data(contentsOf: url) == Data([1, 2, 3]))
-        #expect(view.filePromiseProvider(provider, fileNameForType: UTType.png.identifier) == "dice-quantized.png")
+        #expect(
+            view.filePromiseProvider(provider, fileNameForType: UTType.png.identifier) == "dice-quantized.png"
+        )
     }
 
     @Test func filePromiseNeverReplacesAnExistingFile() async throws {
@@ -255,7 +259,8 @@ struct ImageCanvasNSViewTests {
         let view = ImageCanvasNSView(frame: .zero)
 
         // Act
-        let operation = view.dropOperation(for: pasteboard(holding: url as NSURL), sourceMask: [.copy, .move, .link])
+        let operation = view.dropOperation(
+            for: pasteboard(holding: url as NSURL), sourceMask: [.copy, .move, .link])
 
         // Assert
         #expect(operation == .copy)
@@ -266,7 +271,8 @@ struct ImageCanvasNSViewTests {
         let view = ImageCanvasNSView(frame: .zero)
 
         // Act
-        let operation = view.dropOperation(for: pasteboard(holding: promise(of: .png, from: view)), sourceMask: .copy)
+        let operation = view.dropOperation(
+            for: pasteboard(holding: promise(of: .png, from: view)), sourceMask: .copy)
 
         // Assert
         #expect(operation == .copy)
@@ -278,7 +284,8 @@ struct ImageCanvasNSViewTests {
         let mask = ImageCanvasNSView.dragOutOperations(for: .withinApplication)
 
         // Act
-        let operation = view.dropOperation(for: pasteboard(holding: promise(of: .png, from: view)), sourceMask: mask)
+        let operation = view.dropOperation(
+            for: pasteboard(holding: promise(of: .png, from: view)), sourceMask: mask)
 
         // Assert: let go over itself, it isn't reopened as a copy
         #expect(operation.isEmpty)
@@ -289,7 +296,8 @@ struct ImageCanvasNSViewTests {
         let view = ImageCanvasNSView(frame: .zero)
 
         // Act
-        let operation = view.dropOperation(for: pasteboard(holding: promise(of: .jpeg, from: view)), sourceMask: .copy)
+        let operation = view.dropOperation(
+            for: pasteboard(holding: promise(of: .jpeg, from: view)), sourceMask: .copy)
 
         // Assert
         #expect(operation.isEmpty)
